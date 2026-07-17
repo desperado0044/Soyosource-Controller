@@ -30,8 +30,18 @@ static const uint8_t FALLBACK_CLEAR_SUCCESSES = 3;
 
 static const uint16_t HTTP_TIMEOUT_MS = 1500;
 
+// Bei 500ms Poll-Intervall fällt der TCP-Verbindungsaufbau (SYN/SYN-ACK/ACK)
+// pro Abfrage spürbar ins Gewicht -- er blockiert den ESP8266 zusätzlich zur
+// eigentlichen Anfrage und lässt bei jedem Poll den Webserver kurz "hängen"
+// (unschön bemerkbar im Webinterface). httpClient bleibt daher über alle
+// Abfragen hinweg bestehen (kein lokales WiFiClient pro Aufruf mehr), und
+// setReuse(true) unten sorgt dafür, dass HTTPClient die bestehende TCP-
+// Verbindung zum selben Host wiederverwendet statt jedes Mal neu aufzubauen
+// -- sofern die Gegenstelle (Shelly) HTTP Keep-Alive unterstützt.
+static WiFiClient httpClient;
+
 void shellyBegin() {
-    // Kein Setup nötig, HTTPClient wird pro Abfrage neu angelegt.
+    // Kein weiteres Setup nötig, httpClient oben lebt für die gesamte Laufzeit.
 }
 
 // Fragt einen Shelly-Gen1-Stromzähler (Shelly EM/3EM alter Generation) über
@@ -42,12 +52,12 @@ void shellyBegin() {
 static bool fetchShellyGen1(float &outWatt) {
     if (strlen(config.shelly_ip) == 0) return false;
 
-    WiFiClient client;
     HTTPClient http;
     String url = String("http://") + config.shelly_ip + "/status";
 
+    http.setReuse(true);
     http.setTimeout(HTTP_TIMEOUT_MS);
-    if (!http.begin(client, url)) {
+    if (!http.begin(httpClient, url)) {
         LOG("Shelly Gen1: begin() fehlgeschlagen");
         return false;
     }
@@ -77,12 +87,12 @@ static bool fetchShellyGen1(float &outWatt) {
 static bool fetchShellyGen2(float &outWatt) {
     if (strlen(config.shelly_ip) == 0) return false;
 
-    WiFiClient client;
     HTTPClient http;
     String url = String("http://") + config.shelly_ip + "/rpc/EM.GetStatus?id=0";
 
+    http.setReuse(true);
     http.setTimeout(HTTP_TIMEOUT_MS);
-    if (!http.begin(client, url)) {
+    if (!http.begin(httpClient, url)) {
         LOG("Shelly Gen2: begin() fehlgeschlagen");
         return false;
     }
@@ -138,11 +148,11 @@ static bool traverseJsonPath(JsonVariantConst root, const char *path, float &out
 static bool fetchJsonHttp(float &outWatt) {
     if (strlen(config.json_url) == 0) return false;
 
-    WiFiClient client;
     HTTPClient http;
 
+    http.setReuse(true);
     http.setTimeout(HTTP_TIMEOUT_MS);
-    if (!http.begin(client, config.json_url)) {
+    if (!http.begin(httpClient, config.json_url)) {
         LOG("JsonHttp: begin() fehlgeschlagen");
         return false;
     }

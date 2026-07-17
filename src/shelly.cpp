@@ -13,7 +13,7 @@ float         g_netzwert = 0;
 unsigned long g_lastMeasurementMillis = 0;
 
 static unsigned long lastPollMillis = 0;
-static const unsigned long POLL_INTERVAL_MS = 3000;
+static const unsigned long POLL_INTERVAL_MS = 1000;
 
 // Fallback-Mechanismus: Ein einzelner fehlgeschlagener HTTP-Abruf (z.B. weil
 // der Shelly gerade neu startet) soll noch nicht gleich den Regler in einen
@@ -183,7 +183,7 @@ static void leaveFallbackIfReady() {
     if (g_fallbackActive && successCount >= FALLBACK_CLEAR_SUCCESSES) {
         g_fallbackActive = false;
         failCount = 0;
-        LOG("Fallback beendet, Ramping zurück zum Sollwert");
+        LOG("Fallback beendet, zurück zum berechneten Sollwert");
     }
 }
 

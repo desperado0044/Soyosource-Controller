@@ -32,7 +32,7 @@ struct SoyoStatus {
     unsigned long lastUpdate;
 };
 
-extern int32_t   g_demand;        // aktuell effektiver (gerampter) Sollwert in Watt
+extern int32_t   g_demand;        // aktuell tatsächlich gesendeter Sollwert in Watt
 extern bool      g_notaus;        // Notaus aktiv -> Demand sofort 0
 extern bool      g_fallbackActive;
 extern SoyoStatus g_soyoStatus;
@@ -41,8 +41,8 @@ void rs485Begin();
 void rs485Loop();
 
 // Setzt den gewünschten Zielsollwert. Begrenzung (max_power, Nachtmodus, ...)
-// muss der Aufrufer bereits vorgenommen haben. Rampe (50W/Zyklus) und
-// Sendelogik (nur bei Änderung >1W, alle 3000ms) übernimmt rs485Loop().
+// muss der Aufrufer bereits vorgenommen haben. Sendelogik (direkt übernommen,
+// nur bei Änderung >1W, alle 1000ms) übernimmt rs485Loop().
 void rs485SetTargetDemand(int32_t watts);
 
 // Für OTA: stoppt jegliches Senden und hält DE/RE auf Empfang (LOW).

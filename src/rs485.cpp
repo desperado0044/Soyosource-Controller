@@ -12,7 +12,7 @@ static int32_t lastSentDemand = -1; // erzwingt den ersten Sendevorgang
 static bool    paused = false;
 
 static unsigned long lastSendMillis = 0;
-static const unsigned long SEND_INTERVAL_MS = 3000;
+static const unsigned long SEND_INTERVAL_MS = 1000;
 
 static unsigned long lastStatusRequestMillis = 0;
 static const unsigned long STATUS_REQUEST_INTERVAL_MS = 10000;
@@ -159,26 +159,16 @@ static void parseStatusResponse(const uint8_t *frame) {
     LOG(("RS485: Status-Response empfangen (Status=" + String(g_soyoStatus.operationStatus) + ")").c_str());
 }
 
-// Nähert den tatsächlich gesendeten Sollwert (g_demand) schrittweise an den
-// gewünschten Sollwert (targetDemand) an, statt ihn sprunghaft zu ändern.
-// Große Sprünge (z.B. von 0W auf 800W) könnten den Wechselrichter/die Batterie
-// unnötig belasten, deshalb wird bei einer Differenz >100W nur in 50W-Schritten
-// pro Aufruf (= alle 3 Sekunden, siehe rs485Loop) angenähert. Bei Notaus wird
-// diese Rampe übersprungen und sofort auf 0 gesprungen -- das ist Absicht.
-static void applyDemandRamp() {
+// Übernimmt den gewünschten Sollwert (targetDemand) direkt als tatsächlich
+// gesendeten Sollwert (g_demand) -- keine Rampe, keine Verzögerung. Das war
+// früher anders (schrittweise 50W/Zyklus zum Schutz vor abrupten Leistungs-
+// sprüngen), wurde aber auf Wunsch entfernt: der Sollwert soll so schnell wie
+// möglich der tatsächlichen Situation folgen.
+static void applyDemand() {
     if (g_notaus) {
         targetDemand = 0;
-        g_demand = 0;
-    } else {
-        int32_t diff = targetDemand - g_demand;
-        if (diff > 100) {
-            g_demand += 50;
-        } else if (diff < -100) {
-            g_demand -= 50;
-        } else {
-            g_demand = targetDemand; // kleiner Rest: in einem Schritt fertig angleichen
-        }
     }
+    g_demand = targetDemand;
 
     // Nur senden, wenn sich wirklich etwas geändert hat -- spart unnötigen
     // Bus-Traffic, falls sich der Sollwert gerade nicht (oder nur um Rundungs-
@@ -246,7 +236,7 @@ void rs485Loop() {
 
     if (now - lastSendMillis >= SEND_INTERVAL_MS) {
         lastSendMillis = now;
-        applyDemandRamp();
+        applyDemand();
     }
 }
 

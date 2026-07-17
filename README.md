@@ -5,8 +5,7 @@ Inspiriert von [BavarianSuperGuy/Esp-Soyosource-Controller](https://github.com/K
 
 ## Über dieses Projekt
 
-Dieses Projekt ist eine eigenständige, vollständig neu geschriebene Firmware für
-den Soyosource GTN1000/1200, angeregt durch die Arbeit von
+Dieses Projekt ist eine eigenständige, vollständig neu geschriebene Firmware für den Soyosource GTN1000/1200, angeregt durch die Arbeit von
 [BavarianSuperGuy (KlausLi)](https://github.com/KlausLi/Esp-Soyosource-Controller),
 der mit seinem Esp-Soyosource-Controller die Idee eines ESP8266-basierten
 Nulleinspeisungsreglers für dieses Wechselrichtermodell bekannt gemacht hat.
@@ -73,13 +72,13 @@ formatiert, Gerät startet neu und geht wieder in den AP-Setup-Modus.
 - **Static**: Ausgang konstant auf `static_watt` (kein externer Messwert nötig).
 - **HttpInterface**: externe Quelle pusht Messwert per `GET /L1L2L3Auto?Value=<watt>`.
 - **MqttSub**: Messwert kommt per MQTT-Subscribe auf `mqtt_sub_topic`.
-- **Shelly Gen1 / Gen2 Pro**: Firmware pollt den Shelly per HTTP (alle 3s).
+- **Shelly Gen1 / Gen2 Pro**: Firmware pollt den Shelly per HTTP (alle 1s).
 - **JSON HTTP Client**: generischer Poll gegen eine beliebige JSON-URL mit
   Punkt-separiertem Pfad (z.B. `StatusSNS.SML.DJ_TPWRCURR`).
 
 Bei den pollenden Modi (Shelly/JSON) schaltet die Firmware nach 3 Fehlversuchen in
 einen Fallback-Zustand (`fallback_watt`) und kehrt nach 3 erfolgreichen Antworten
-wieder in den Normalbetrieb zurück (mit Ramping in 50W-Schritten).
+wieder in den Normalbetrieb zurück.
 
 ## RS485 Status-Response
 

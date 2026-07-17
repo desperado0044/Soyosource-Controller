@@ -214,12 +214,20 @@ void shellyLoop() {
     float watt = 0;
     bool ok = false;
 
+    // Diagnose: misst, wie lange der komplette HTTP-Abruf (inkl. TCP-Verbindung,
+    // Warten auf Antwort, JSON-Parsen) tatsächlich dauert -- genau diese Zeit
+    // blockiert den ESP8266 komplett, da loop() währenddessen nichts anderes
+    // tun kann (siehe README, Abschnitt "Für Einsteiger").
+    unsigned long fetchStartMillis = millis();
+
     switch (config.mode) {
         case MODE_SHELLY_GEN1: ok = fetchShellyGen1(watt); break;
         case MODE_SHELLY_GEN2: ok = fetchShellyGen2(watt); break;
         case MODE_JSON_HTTP:   ok = fetchJsonHttp(watt);   break;
         default: break;
     }
+
+    LOG(("Poll-Dauer: " + String(millis() - fetchStartMillis) + "ms (" + (ok ? "OK" : "Fehler") + ")").c_str());
 
     if (ok) {
         applyMeasurement(watt);

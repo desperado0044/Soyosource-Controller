@@ -58,9 +58,48 @@ pio run -t uploadfs   # LittleFS-Image (nur nötig falls Dateien in data/ liegen
 1. Erstes Boot ohne `config.json` (oder leere `wifi_ssid`) → Gerät startet einen
    Access Point `SOYO-Setup` (Passwort `1234567890`, IP `10.0.0.1`). Captive
    Portal öffnet sich auf den meisten Smartphones automatisch.
-2. Im Webinterface unter "Konfiguration" WLAN-Zugangsdaten und Betriebsmodus setzen,
-   "Save Controller" klicken → Gerät speichert und startet neu, verbindet sich mit dem WLAN.
+2. Im Webinterface unter "Netzwerkkonfiguration" → WLAN die Zugangsdaten setzen,
+   "WLAN speichern" klicken → Gerät speichert und startet neu, verbindet sich mit dem WLAN.
 3. Danach erreichbar über `http://soyo.local` oder die vom Router vergebene IP.
+   Unter "Gerätekonfiguration" → Betriebsmodus den gewünschten Modus einstellen
+   und "Betriebsmodus speichern" klicken.
+
+## Webinterface
+
+Drei Tabs, umschaltbar ohne Neuladen der Seite:
+
+- **Hauptseite**: Live-Status (Demand, Netzwert, Modus, Notaus, RSSI, Laufzeit,
+  Heap, Soyo-RS485-Werte falls verfügbar) sowie die Notaus-/Neustart-Buttons.
+  Oben drei Statuspunkte: **ESP** (grün, solange `/status` antwortet), **Soyo**
+  (grün nur bei tatsächlicher RS485-Antwort — bleibt bei Geräten ohne
+  Status-Antwort dauerhaft aus, das ist kein Fehler, siehe Abschnitt "RS485
+  Status-Response"), **Messwertquelle** (nur bei Shelly/JSON-Modus sichtbar,
+  rot bei aktivem Fallback).
+- **Gerätekonfiguration**: Betriebsmodus, Regelung, Nachtmodus, OTA, Config-
+  Download/-Upload.
+- **Netzwerkkonfiguration**: WLAN, MQTT.
+
+## Webinterface: Einzelspeicherung pro Bereich
+
+Es gibt keinen globalen "Alles speichern"-Button mehr. Jeder Konfigurationsblock
+(WLAN, MQTT, Betriebsmodus, Regelung, Nachtmodus, OTA) hat einen eigenen
+Save-Button und wird unabhängig von den anderen gespeichert — Felder, die
+nicht mitgeschickt werden, bleiben unverändert (siehe `configMergeFromJsonString`
+in [storage.cpp](src/storage.cpp)).
+
+- **Netzwerkkonfiguration** (WLAN, MQTT): braucht nach dem Speichern einen
+  Neustart, da WLAN-Verbindung bzw. MQTT-Broker-Verbindung nur einmal beim
+  Boot aufgebaut werden.
+- **Gerätekonfiguration** (Betriebsmodus, Regelung, Nachtmodus): wirkt sofort,
+  ohne Neustart — diese Werte werden von der jeweiligen Regel-/Poll-Schleife
+  bei jedem Durchlauf frisch aus der Konfiguration gelesen.
+- **OTA-Passwort**: Ausnahme innerhalb der Gerätekonfiguration, braucht
+  ebenfalls einen Neustart (ElegantOTA wird nur einmal beim Boot initialisiert).
+
+Der Server entscheidet selbst anhand der im Request enthaltenen Felder, ob ein
+Neustart nötig ist — nicht das Frontend. `Config Upload` (Wiederherstellung aus
+einer heruntergeladenen Backup-Datei) startet dagegen immer neu, unabhängig
+vom Inhalt.
 
 ## Werksreset
 
@@ -72,9 +111,17 @@ formatiert, Gerät startet neu und geht wieder in den AP-Setup-Modus.
 - **Static**: Ausgang konstant auf `static_watt` (kein externer Messwert nötig).
 - **HttpInterface**: externe Quelle pusht Messwert per `GET /L1L2L3Auto?Value=<watt>`.
 - **MqttSub**: Messwert kommt per MQTT-Subscribe auf `mqtt_sub_topic`.
-- **Shelly Gen1 / Gen2 Pro**: Firmware pollt den Shelly per HTTP (alle 500ms).
+- **Shelly Gen1 / Gen2 Pro**: Firmware pollt den Shelly per HTTP, Intervall
+  einstellbar (`poll_interval_ms`, 400-2000ms, Standard 1000ms; Feld "Poll-
+  Intervall Shelly/JSON" im Webinterface). Der RS485-Sendezyklus läuft davon
+  unabhängig weiterhin alle 500ms. Messwertquelle wählbar als Gesamtleistung
+  (L1+L2+L3) oder genau eine einzelne Phase (Radio-Auswahl im Webinterface,
+  gegenseitig ausschließend) — bei beiden Generationen gleich, Gen1 liefert
+  die Einzelphasen über das `emeters`-Array seiner `/status`-Antwort, Gen2
+  über `a_act_power`/`b_act_power`/`c_act_power`.
 - **JSON HTTP Client**: generischer Poll gegen eine beliebige JSON-URL mit
-  Punkt-separiertem Pfad (z.B. `StatusSNS.SML.DJ_TPWRCURR`).
+  Punkt-separiertem Pfad (z.B. `StatusSNS.SML.DJ_TPWRCURR`), gleiches
+  einstellbares Poll-Intervall wie bei Shelly.
 
 Bei den pollenden Modi (Shelly/JSON) schaltet die Firmware nach 3 Fehlversuchen in
 einen Fallback-Zustand (`fallback_watt`) und kehrt nach 3 erfolgreichen Antworten

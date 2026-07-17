@@ -29,6 +29,7 @@ void configSetDefaults(Config &c) {
     c.shelly_l1 = true;
     c.shelly_l2 = true;
     c.shelly_l3 = true;
+    c.poll_interval_ms = 1000;
 
     c.max_power = 1200;
     c.soyo_count = 1;
@@ -73,6 +74,7 @@ static void configToDoc(const Config &c, JsonDocument &doc) {
     doc["shelly_l1"] = c.shelly_l1;
     doc["shelly_l2"] = c.shelly_l2;
     doc["shelly_l3"] = c.shelly_l3;
+    doc["poll_interval_ms"] = c.poll_interval_ms;
 
     doc["json_url"] = c.json_url;
     doc["json_path"] = c.json_path;
@@ -101,53 +103,76 @@ static void configToDoc(const Config &c, JsonDocument &doc) {
 // char-Arrays des Config-structs: es schneidet automatisch ab, falls die
 // Quelle länger als das Ziel-Array ist, statt (wie strcpy) über das Ende des
 // Arrays hinauszuschreiben und Speicher zu beschädigen.
+// Übernimmt aus doc NUR die Felder, die dort tatsächlich enthalten sind --
+// alles andere in c bleibt unverändert stehen (Merge statt Ersetzen). Das ist
+// wichtig, weil das Webinterface jetzt auch Teil-Speicherungen schickt (z.B.
+// nur die WLAN-Felder beim Klick auf "WLAN speichern") -- ein Vollersatz mit
+// Default-Werten für fehlende Felder würde dabei alle anderen, gerade nicht
+// gesendeten Einstellungen (MQTT, Regelung, ...) auf ihre Werkseinstellung
+// zurücksetzen. Der `!doc["x"].isNull()`-Check ist deshalb kein Zufall, sondern
+// die entscheidende Bedingung -- er ersetzt die früheren `doc["x"] | default`-
+// Aufrufe, die bei fehlendem Feld einen Default statt "unverändert lassen"
+// eingesetzt hätten.
+//
+// Für den Boot-Fall (Laden von /config.json) ist das genauso korrekt: main.cpp
+// ruft vorher configSetDefaults(config) auf, sodass c beim Aufruf hier schon
+// mit sinnvollen Werkseinstellungen gefüllt ist -- fehlt ein Feld in der Datei
+// (z.B. weil sie mit einer älteren Firmware-Version gespeichert wurde), bleibt
+// einfach der Default aus configSetDefaults() stehen.
 static void docToConfig(JsonDocument &doc, Config &c) {
-    strlcpy(c.wifi_ssid, doc["wifi_ssid"] | "", sizeof(c.wifi_ssid));
-    strlcpy(c.wifi_pass, doc["wifi_pass"] | "", sizeof(c.wifi_pass));
-    c.wifi_static = doc["wifi_static"] | false;
-    strlcpy(c.wifi_ip, doc["wifi_ip"] | "", sizeof(c.wifi_ip));
-    strlcpy(c.wifi_gw, doc["wifi_gw"] | "", sizeof(c.wifi_gw));
-    strlcpy(c.wifi_mask, doc["wifi_mask"] | "255.255.255.0", sizeof(c.wifi_mask));
-    c.wifi_11n = doc["wifi_11n"] | false;
+    if (!doc["wifi_ssid"].isNull()) strlcpy(c.wifi_ssid, doc["wifi_ssid"], sizeof(c.wifi_ssid));
+    if (!doc["wifi_pass"].isNull()) strlcpy(c.wifi_pass, doc["wifi_pass"], sizeof(c.wifi_pass));
+    if (!doc["wifi_static"].isNull()) c.wifi_static = doc["wifi_static"];
+    if (!doc["wifi_ip"].isNull()) strlcpy(c.wifi_ip, doc["wifi_ip"], sizeof(c.wifi_ip));
+    if (!doc["wifi_gw"].isNull()) strlcpy(c.wifi_gw, doc["wifi_gw"], sizeof(c.wifi_gw));
+    if (!doc["wifi_mask"].isNull()) strlcpy(c.wifi_mask, doc["wifi_mask"], sizeof(c.wifi_mask));
+    if (!doc["wifi_11n"].isNull()) c.wifi_11n = doc["wifi_11n"];
 
-    c.mqtt_enabled = doc["mqtt_enabled"] | false;
-    strlcpy(c.mqtt_broker, doc["mqtt_broker"] | "", sizeof(c.mqtt_broker));
-    c.mqtt_port = doc["mqtt_port"] | 1883;
-    strlcpy(c.mqtt_user, doc["mqtt_user"] | "", sizeof(c.mqtt_user));
-    strlcpy(c.mqtt_pass, doc["mqtt_pass"] | "", sizeof(c.mqtt_pass));
-    strlcpy(c.mqtt_sub_topic, doc["mqtt_sub_topic"] | "Soyosource/L1L2L3", sizeof(c.mqtt_sub_topic));
-    strlcpy(c.mqtt_pub_topic, doc["mqtt_pub_topic"] | "Soyosource/status", sizeof(c.mqtt_pub_topic));
+    if (!doc["mqtt_enabled"].isNull()) c.mqtt_enabled = doc["mqtt_enabled"];
+    if (!doc["mqtt_broker"].isNull()) strlcpy(c.mqtt_broker, doc["mqtt_broker"], sizeof(c.mqtt_broker));
+    if (!doc["mqtt_port"].isNull()) c.mqtt_port = doc["mqtt_port"];
+    if (!doc["mqtt_user"].isNull()) strlcpy(c.mqtt_user, doc["mqtt_user"], sizeof(c.mqtt_user));
+    if (!doc["mqtt_pass"].isNull()) strlcpy(c.mqtt_pass, doc["mqtt_pass"], sizeof(c.mqtt_pass));
+    if (!doc["mqtt_sub_topic"].isNull()) strlcpy(c.mqtt_sub_topic, doc["mqtt_sub_topic"], sizeof(c.mqtt_sub_topic));
+    if (!doc["mqtt_pub_topic"].isNull()) strlcpy(c.mqtt_pub_topic, doc["mqtt_pub_topic"], sizeof(c.mqtt_pub_topic));
 
-    c.mode = doc["mode"] | (uint8_t)MODE_STATIC;
-    c.static_watt = doc["static_watt"] | 0;
+    if (!doc["mode"].isNull()) c.mode = doc["mode"];
+    if (!doc["static_watt"].isNull()) c.static_watt = doc["static_watt"];
 
-    strlcpy(c.shelly_ip, doc["shelly_ip"] | "", sizeof(c.shelly_ip));
-    c.shelly_l1 = doc["shelly_l1"] | true;
-    c.shelly_l2 = doc["shelly_l2"] | true;
-    c.shelly_l3 = doc["shelly_l3"] | true;
+    if (!doc["shelly_ip"].isNull()) strlcpy(c.shelly_ip, doc["shelly_ip"], sizeof(c.shelly_ip));
+    if (!doc["shelly_l1"].isNull()) c.shelly_l1 = doc["shelly_l1"];
+    if (!doc["shelly_l2"].isNull()) c.shelly_l2 = doc["shelly_l2"];
+    if (!doc["shelly_l3"].isNull()) c.shelly_l3 = doc["shelly_l3"];
+    if (!doc["poll_interval_ms"].isNull()) c.poll_interval_ms = doc["poll_interval_ms"];
 
-    strlcpy(c.json_url, doc["json_url"] | "", sizeof(c.json_url));
-    strlcpy(c.json_path, doc["json_path"] | "", sizeof(c.json_path));
+    if (!doc["json_url"].isNull()) strlcpy(c.json_url, doc["json_url"], sizeof(c.json_url));
+    if (!doc["json_path"].isNull()) strlcpy(c.json_path, doc["json_path"], sizeof(c.json_path));
 
-    c.max_power = doc["max_power"] | 1200;
-    c.soyo_count = doc["soyo_count"] | 1;
-    c.offset = doc["offset"] | 0;
-    c.fallback_watt = doc["fallback_watt"] | 0;
+    if (!doc["max_power"].isNull()) c.max_power = doc["max_power"];
+    if (!doc["soyo_count"].isNull()) c.soyo_count = doc["soyo_count"];
+    if (!doc["offset"].isNull()) c.offset = doc["offset"];
+    if (!doc["fallback_watt"].isNull()) c.fallback_watt = doc["fallback_watt"];
 
-    c.night_mode_enabled = doc["night_mode_enabled"] | false;
-    c.night_start_h = doc["night_start_h"] | 22;
-    c.night_start_m = doc["night_start_m"] | 0;
-    c.night_end_h = doc["night_end_h"] | 6;
-    c.night_end_m = doc["night_end_m"] | 0;
-    c.night_max_power = doc["night_max_power"] | 300;
+    if (!doc["night_mode_enabled"].isNull()) c.night_mode_enabled = doc["night_mode_enabled"];
+    if (!doc["night_start_h"].isNull()) c.night_start_h = doc["night_start_h"];
+    if (!doc["night_start_m"].isNull()) c.night_start_m = doc["night_start_m"];
+    if (!doc["night_end_h"].isNull()) c.night_end_h = doc["night_end_h"];
+    if (!doc["night_end_m"].isNull()) c.night_end_m = doc["night_end_m"];
+    if (!doc["night_max_power"].isNull()) c.night_max_power = doc["night_max_power"];
 
-    strlcpy(c.ota_pass, doc["ota_pass"] | "", sizeof(c.ota_pass));
+    if (!doc["ota_pass"].isNull()) strlcpy(c.ota_pass, doc["ota_pass"], sizeof(c.ota_pass));
 
     // Sicherheitsnetz gegen ungültige/manipulierte Werte aus einer hochgeladenen
     // config.json, z.B. via /config_upload -- soyo_count=0 würde später eine
     // Division durch 0 in der Regellogik (main.cpp) verursachen.
     if (c.soyo_count < 1) c.soyo_count = 1;
-    if (c.soyo_count > 4) c.soyo_count = 4;
+    if (c.soyo_count > 12) c.soyo_count = 12;
+
+    // 400ms Untergrenze: darunter blockiert der HTTP-Poll (siehe shelly.cpp)
+    // loop() zu stark (live gemessen: ~100-450ms pro Abfrage). 2000ms Obergrenze
+    // ist eine willkürliche, aber sinnvolle Obergrenze für die UI.
+    if (c.poll_interval_ms < 400) c.poll_interval_ms = 400;
+    if (c.poll_interval_ms > 2000) c.poll_interval_ms = 2000;
 }
 
 // Muss als Erstes aufgerufen werden, bevor irgendetwas anderes auf LittleFS
@@ -219,13 +244,31 @@ String configToJsonString(const Config &c) {
     return out;
 }
 
-bool configFromJsonString(Config &c, const String &json) {
+// Felder, die erst nach einem Neustart wirksam werden, weil die zugehörige
+// Bibliothek/Verbindung nur einmal in setup() initialisiert wird (WiFi.begin(),
+// mqttClient.setServer(), ElegantOTA.begin()). Alle anderen Felder werden von
+// der jeweiligen Loop-Funktion bei jedem Durchlauf frisch aus config gelesen
+// und wirken deshalb sofort, ganz ohne Neustart.
+static bool jsonNeedsRestart(JsonDocument &doc) {
+    static const char *restartFields[] = {
+        "wifi_ssid", "wifi_pass", "wifi_static", "wifi_ip", "wifi_gw", "wifi_mask", "wifi_11n",
+        "mqtt_enabled", "mqtt_broker", "mqtt_port", "mqtt_user", "mqtt_pass",
+        "mqtt_sub_topic", "mqtt_pub_topic", "ota_pass"
+    };
+    for (const char *field : restartFields) {
+        if (!doc[field].isNull()) return true;
+    }
+    return false;
+}
+
+bool configMergeFromJsonString(Config &c, const String &json, bool &outNeedsRestart) {
     StaticJsonDocument<1024> doc;
     DeserializationError err = deserializeJson(doc, json);
     if (err) {
         LOG(("Config: Upload JSON-Fehler " + String(err.c_str())).c_str());
         return false;
     }
+    outNeedsRestart = jsonNeedsRestart(doc);
     docToConfig(doc, c);
     return true;
 }

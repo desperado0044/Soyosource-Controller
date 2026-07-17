@@ -12,8 +12,15 @@
 float         g_netzwert = 0;
 unsigned long g_lastMeasurementMillis = 0;
 
+// Abfrageintervall ist über config.poll_interval_ms einstellbar (400-2000ms,
+// Webinterface -> Konfiguration -> Regelung), Grenzen werden beim Laden/
+// Speichern in storage.cpp erzwungen. Bewusst unabhängig vom RS485-Sendezyklus
+// (500ms, siehe rs485.cpp): Der HTTP-Abruf blockiert loop() für ~100-450ms
+// (live gemessen), läuft er zu oft, verdrängt er das RS485-Senden und den
+// Webserver zu stark. Der zuletzt bekannte Messwert (g_netzwert) bleibt bis
+// zum nächsten Poll gültig; main.cpp verarbeitet ihn nur einmal pro tatsächlich
+// neuer Messung weiter, unabhängig davon wie oft runControlLoop() läuft.
 static unsigned long lastPollMillis = 0;
-static const unsigned long POLL_INTERVAL_MS = 500;
 
 // Fallback-Mechanismus: Ein einzelner fehlgeschlagener HTTP-Abruf (z.B. weil
 // der Shelly gerade neu startet) soll noch nicht gleich den Regler in einen
@@ -45,10 +52,13 @@ void shellyBegin() {
 }
 
 // Fragt einen Shelly-Gen1-Stromzähler (Shelly EM/3EM alter Generation) über
-// dessen HTTP-API ab und liefert die aktuelle Gesamtleistung in outWatt.
-// Gibt true zurück, wenn die Abfrage geklappt hat, sonst false. Das gemeinsame
-// Grundgerüst (URL bauen, HTTPClient starten, GET, JSON parsen, http.end())
-// wiederholt sich in fetchShellyGen2()/fetchJsonHttp() unten fast identisch.
+// dessen HTTP-API ab und liefert die aktuelle Leistung in outWatt -- je nach
+// Konfiguration entweder die Gesamtleistung (Feld "total_power") oder eine
+// einzelne Phase (Feld "power" in doc["emeters"][0/1/2], Index 0=L1, 1=L2,
+// 2=L3). Gibt true zurück, wenn die Abfrage geklappt hat, sonst false. Das
+// gemeinsame Grundgerüst (URL bauen, HTTPClient starten, GET, JSON parsen,
+// http.end()) wiederholt sich in fetchShellyGen2()/fetchJsonHttp() unten fast
+// identisch.
 static bool fetchShellyGen1(float &outWatt) {
     if (strlen(config.shelly_ip) == 0) return false;
 
@@ -67,10 +77,23 @@ static bool fetchShellyGen1(float &outWatt) {
     if (code == HTTP_CODE_OK) {
         StaticJsonDocument<1024> doc;
         DeserializationError err = deserializeJson(doc, http.getString());
-        if (!err && !doc["total_power"].isNull()) {
-            outWatt = doc["total_power"].as<float>();
-            ok = true;
-        } else {
+        if (!err) {
+            bool allPhases = config.shelly_l1 && config.shelly_l2 && config.shelly_l3;
+            if (allPhases && !doc["total_power"].isNull()) {
+                // "Gesamt" nutzt lieber den vom Shelly selbst berechneten
+                // total_power-Wert als drei Einzelwerte selbst aufzusummieren
+                // -- vermeidet Rundungsabweichungen zwischen beiden Wegen.
+                outWatt = doc["total_power"].as<float>();
+                ok = true;
+            } else {
+                float sum = 0;
+                if (config.shelly_l1 && !doc["emeters"][0]["power"].isNull()) { sum += doc["emeters"][0]["power"].as<float>(); ok = true; }
+                if (config.shelly_l2 && !doc["emeters"][1]["power"].isNull()) { sum += doc["emeters"][1]["power"].as<float>(); ok = true; }
+                if (config.shelly_l3 && !doc["emeters"][2]["power"].isNull()) { sum += doc["emeters"][2]["power"].as<float>(); ok = true; }
+                if (ok) outWatt = sum;
+            }
+        }
+        if (!ok) {
             LOG("Shelly Gen1: JSON-Fehler");
         }
     } else {
@@ -206,7 +229,7 @@ void shellyLoop() {
     }
 
     unsigned long now = millis();
-    if (now - lastPollMillis < POLL_INTERVAL_MS) {
+    if (now - lastPollMillis < config.poll_interval_ms) {
         return;
     }
     lastPollMillis = now;

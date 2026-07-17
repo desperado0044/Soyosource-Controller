@@ -45,9 +45,10 @@ struct Config {
     uint8_t mode;
     uint16_t static_watt; // Sollwert im Static-Modus (mode=0)
 
-    // Shelly
+    // Shelly / JSON HTTP Client
     char shelly_ip[32];
     bool shelly_l1, shelly_l2, shelly_l3; // nur Gen2 wirksam
+    uint16_t poll_interval_ms; // Abfrageintervall Shelly/JSON-HTTP, 400-2000ms
 
     // JSON HTTP Client
     char json_url[128];
@@ -55,7 +56,7 @@ struct Config {
 
     // Regelung
     uint16_t max_power;      // Obergrenze für den Sollwert in Watt (Sicherheitslimit)
-    uint8_t  soyo_count;     // Anzahl parallel angeschlossener Soyo-Geräte (1-4);
+    uint8_t  soyo_count;     // Anzahl parallel angeschlossener Soyo-Geräte (1-12);
                              // der Messwert wird durch diese Zahl geteilt, bevor er
                              // auf den Sollwert aufaddiert wird (siehe main.cpp)
     int16_t  offset;         // wird zu jedem Messwert addiert, um z.B. einen leicht

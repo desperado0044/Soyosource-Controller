@@ -76,6 +76,17 @@ static void checkFactoryReset() {
 // Sollwert 400 + 60 = 460W. Bei jedem folgenden Regeldurchlauf wird so erneut
 // nachgesteuert, bis sich Verbrauch und Einspeisung ungefähr die Waage halten
 // (dann pendelt g_netzwert nahe 0 und landet im Toleranzband, siehe unten).
+// runControlLoop() selbst läuft bei jedem loop()-Durchlauf (also sehr oft,
+// nicht nur alle paar hundert ms), ein neuer Messwert kommt aber nur an, wenn
+// shellyLoop()/MQTT/HttpInterface tatsächlich etwas Neues liefern -- diese
+// beiden Takte sind bewusst entkoppelt (siehe shelly.cpp). Ohne die Prüfung
+// unten würde derselbe, bereits verarbeitete Messwert bei jedem Durchlauf
+// erneut auf g_demand aufaddiert werden, obwohl sich in der Realität nichts
+// geändert hat -- der Sollwert würde sich künstlich aufschaukeln, statt nur
+// einmal pro echter Messung nachgeführt zu werden.
+static unsigned long lastProcessedMeasurementMillis = 0;
+static int32_t lastComputedTarget = 0;
+
 static void runControlLoop() {
     if (g_notaus) {
         rs485SetTargetDemand(0);
@@ -89,7 +100,11 @@ static void runControlLoop() {
         g_lastMeasurementMillis = millis(); // kein externer Messwert im Static-Modus nötig
     } else if (g_fallbackActive) {
         target = config.fallback_watt;
-    } else {
+    } else if (g_lastMeasurementMillis != lastProcessedMeasurementMillis) {
+        // Es liegt ein Messwert vor, der seit dem letzten Regeldurchlauf noch
+        // nicht verarbeitet wurde -- jetzt (und nur jetzt) einmalig nachführen.
+        lastProcessedMeasurementMillis = g_lastMeasurementMillis;
+
         float netz = g_netzwert;
         if (netz <= -20.0f || netz >= 5.0f) {
             target = g_demand + (int32_t)(netz / config.soyo_count);
@@ -97,6 +112,11 @@ static void runControlLoop() {
             target = g_demand; // Toleranzband: Sollwert unverändert
         }
         target = constrain(target, 0, (int32_t)config.max_power);
+        lastComputedTarget = target;
+    } else {
+        // Kein neuer Messwert seit dem letzten Durchlauf -> zuletzt berechneten
+        // Sollwert halten, nicht erneut aus demselben Messwert nachrechnen.
+        target = lastComputedTarget;
     }
 
     if (isNightMode()) {

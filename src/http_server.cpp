@@ -78,17 +78,43 @@ width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);backgro
 .hint{font-size:.82em;color:var(--muted);margin-top:4px;}
 a{color:var(--accent);}
 #staticIpFields,#jsonSection,#nightFields,#staticSection{display:none;}
+.status-dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--muted);margin-right:4px;vertical-align:middle;}
+.status-dot.on{background:var(--green);}
+.status-dot.off{background:var(--red);}
+.status-item{display:inline-flex;align-items:center;margin-right:14px;font-size:.9em;}
+.saved-ok{color:var(--green);font-size:.85em;margin-left:8px;}
+.tabbar{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;}
+.tab-btn{flex:1;padding:10px 8px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--fg);font-size:.95em;cursor:pointer;white-space:nowrap;}
+.tab-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+.tab-panel{display:none;}
+.tab-panel.active{display:block;}
 </style>
 </head>
 <body>
 
-<h1 id="heartbeat">&#9679; ESP Herzschlag</h1>
+<h1>Soyosource Regler</h1>
 
 <div id="apwarning" class="warning">AP-Setup-Modus aktiv &mdash; bitte WLAN unten konfigurieren und speichern.</div>
 <div id="fallbackWarning" class="warning">Fallback aktiv &mdash; Messwertquelle antwortet nicht, Ausgabe auf Fallback-Watt.</div>
 
+<div class="tabbar">
+  <button type="button" class="tab-btn active" id="tabbtn-main" onclick="switchTab('main')">Hauptseite</button>
+  <button type="button" class="tab-btn" id="tabbtn-device" onclick="switchTab('device')">Gerätekonfig</button>
+  <button type="button" class="tab-btn" id="tabbtn-network" onclick="switchTab('network')">Netzwerkkonfig</button>
+</div>
+
+<div class="tab-panel active" id="tab-main">
+
 <div class="card">
   <h2>Status</h2>
+  <div class="row">
+    <span>Verbindungen</span>
+    <span>
+      <span class="status-item"><span class="status-dot" id="dotEsp"></span>ESP</span>
+      <span class="status-item"><span class="status-dot" id="dotSoyo"></span>Soyo</span>
+      <span class="status-item" id="dotSourceItem"><span class="status-dot" id="dotSource"></span>Messwertquelle</span>
+    </span>
+  </div>
   <div class="row"><span>Demand</span><span><b id="demand">-</b> W</span></div>
   <div class="row"><span>Netzwert</span><span><b id="netz">-</b> W</span></div>
   <div class="row"><span>Modus</span><span id="modeText">-</span></div>
@@ -116,111 +142,140 @@ a{color:var(--accent);}
   <button class="btn btn-muted" onclick="restart()">Neustart</button>
 </div>
 
+</div>
+<div class="tab-panel" id="tab-network">
+
 <div class="card">
-  <h2>Konfiguration</h2>
-  <form id="cfgForm" onsubmit="return false;">
+  <h2>Netzwerkkonfiguration</h2>
+  <p class="hint">Änderungen hier brauchen einen Neustart, um wirksam zu werden (WLAN/MQTT-Verbindung wird neu aufgebaut).</p>
 
-    <fieldset>
-      <legend>WLAN</legend>
-      <label>SSID</label>
-      <input type="text" id="wifi_ssid">
-      <label>Passwort</label>
-      <input type="password" id="wifi_pass">
-      <div class="checkbox-row"><input type="checkbox" id="wifi_static" onchange="onStaticToggle()"><label style="margin:0;">Statische IP</label></div>
-      <div id="staticIpFields">
-        <label>IP-Adresse</label>
-        <input type="text" id="wifi_ip" placeholder="192.168.1.200">
-        <label>Gateway</label>
-        <input type="text" id="wifi_gw" placeholder="192.168.1.1">
-        <label>Subnetzmaske</label>
-        <input type="text" id="wifi_mask" placeholder="255.255.255.0">
-      </div>
-      <div class="checkbox-row"><input type="checkbox" id="wifi_11n"><label style="margin:0;">802.11n erzwingen</label></div>
-    </fieldset>
+  <fieldset>
+    <legend>WLAN</legend>
+    <label>SSID</label>
+    <input type="text" id="wifi_ssid">
+    <label>Passwort</label>
+    <input type="password" id="wifi_pass">
+    <div class="checkbox-row"><input type="checkbox" id="wifi_static" onchange="onStaticToggle()"><label style="margin:0;">Statische IP</label></div>
+    <div id="staticIpFields">
+      <label>IP-Adresse</label>
+      <input type="text" id="wifi_ip" placeholder="192.168.1.200">
+      <label>Gateway</label>
+      <input type="text" id="wifi_gw" placeholder="192.168.1.1">
+      <label>Subnetzmaske</label>
+      <input type="text" id="wifi_mask" placeholder="255.255.255.0">
+    </div>
+    <div class="checkbox-row"><input type="checkbox" id="wifi_11n"><label style="margin:0;">802.11n erzwingen</label></div>
+    <button type="button" class="btn btn-blue" onclick="saveSection('wlan')">WLAN speichern</button>
+    <span class="saved-ok" id="saved-wlan"></span>
+  </fieldset>
 
-    <fieldset>
-      <legend>MQTT</legend>
-      <div class="checkbox-row"><input type="checkbox" id="mqtt_enabled"><label style="margin:0;">MQTT aktiv</label></div>
-      <label>Broker</label>
-      <input type="text" id="mqtt_broker">
-      <label>Port</label>
-      <input type="number" id="mqtt_port" value="1883">
-      <label>Benutzer</label>
-      <input type="text" id="mqtt_user">
-      <label>Passwort</label>
-      <input type="password" id="mqtt_pass">
-      <label>Sub-Topic (Messwert)</label>
-      <input type="text" id="mqtt_sub_topic">
-      <label>Pub-Topic (Status)</label>
-      <input type="text" id="mqtt_pub_topic">
-    </fieldset>
+  <fieldset>
+    <legend>MQTT</legend>
+    <div class="checkbox-row"><input type="checkbox" id="mqtt_enabled"><label style="margin:0;">MQTT aktiv</label></div>
+    <label>Broker</label>
+    <input type="text" id="mqtt_broker">
+    <label>Port</label>
+    <input type="number" id="mqtt_port" value="1883">
+    <label>Benutzer</label>
+    <input type="text" id="mqtt_user">
+    <label>Passwort</label>
+    <input type="password" id="mqtt_pass">
+    <label>Sub-Topic (Messwert)</label>
+    <input type="text" id="mqtt_sub_topic">
+    <label>Pub-Topic (Status)</label>
+    <input type="text" id="mqtt_pub_topic">
+    <button type="button" class="btn btn-blue" onclick="saveSection('mqtt')">MQTT speichern</button>
+    <span class="saved-ok" id="saved-mqtt"></span>
+  </fieldset>
+</div>
 
-    <fieldset>
-      <legend>Betriebsmodus</legend>
-      <label>Modus</label>
-      <select id="mode" onchange="onModeChange()">
-        <option value="0">Static (konstante Leistung)</option>
-        <option value="1">HttpInterface (/L1L2L3Auto?Value=x)</option>
-        <option value="2">MqttSub</option>
-        <option value="3">Shelly Gen1</option>
-        <option value="4">Shelly Gen2 Pro</option>
-        <option value="5">JSON HTTP Client</option>
-      </select>
+</div>
+<div class="tab-panel" id="tab-device">
 
-      <div id="staticSection">
-        <label>Statische Leistung (W)</label>
-        <input type="number" id="static_watt">
-      </div>
+<div class="card">
+  <h2>Gerätekonfiguration</h2>
+  <p class="hint">Änderungen hier wirken sofort, ohne Neustart (Ausnahme: OTA-Passwort).</p>
 
-      <label>Shelly IP</label>
-      <input type="text" id="shelly_ip" placeholder="192.168.1.50">
-      <div class="checkbox-row"><input type="checkbox" id="shelly_l1"><label style="margin:0;">L1</label></div>
-      <div class="checkbox-row"><input type="checkbox" id="shelly_l2"><label style="margin:0;">L2</label></div>
-      <div class="checkbox-row"><input type="checkbox" id="shelly_l3"><label style="margin:0;">L3</label></div>
-      <div class="hint" id="shellyHint">Gen1: immer Gesamtleistung, Phasenauswahl nicht verfügbar.</div>
+  <fieldset>
+    <legend>Betriebsmodus</legend>
+    <label>Modus</label>
+    <select id="mode" onchange="onModeChange()">
+      <option value="0">Static (konstante Leistung)</option>
+      <option value="1">HttpInterface (/L1L2L3Auto?Value=x)</option>
+      <option value="2">MqttSub</option>
+      <option value="3">Shelly Gen1</option>
+      <option value="4">Shelly Gen2 Pro</option>
+      <option value="5">JSON HTTP Client</option>
+    </select>
 
-      <div id="jsonSection">
-        <label>JSON-URL</label>
-        <input type="text" id="json_url" placeholder="http://host/status">
-        <label>JSON-Pfad (Punkt-separiert)</label>
-        <input type="text" id="json_path" placeholder="StatusSNS.SML.DJ_TPWRCURR">
-      </div>
-    </fieldset>
+    <div id="staticSection">
+      <label>Statische Leistung (W)</label>
+      <input type="number" id="static_watt">
+    </div>
 
-    <fieldset>
-      <legend>Regelung</legend>
-      <label>Max. Leistung (W)</label>
-      <input type="number" id="max_power">
-      <label>Sollwertteiler (1-4)</label>
-      <input type="number" id="soyo_count" min="1" max="4">
-      <label>Nullpunkt-Offset (W)</label>
-      <input type="number" id="offset">
-      <label>Fallback-Watt</label>
-      <input type="number" id="fallback_watt">
-    </fieldset>
+    <label>Shelly IP</label>
+    <input type="text" id="shelly_ip" placeholder="192.168.1.50">
+    <label>Phase (Gen1 &amp; Gen2, entweder Gesamt oder genau eine Phase)</label>
+    <div class="checkbox-row"><input type="radio" name="shellyPhase" id="shelly_total" value="total"><label style="margin:0;" for="shelly_total">Gesamt (L1+L2+L3)</label></div>
+    <div class="checkbox-row"><input type="radio" name="shellyPhase" id="shelly_l1" value="l1"><label style="margin:0;" for="shelly_l1">L1</label></div>
+    <div class="checkbox-row"><input type="radio" name="shellyPhase" id="shelly_l2" value="l2"><label style="margin:0;" for="shelly_l2">L2</label></div>
+    <div class="checkbox-row"><input type="radio" name="shellyPhase" id="shelly_l3" value="l3"><label style="margin:0;" for="shelly_l3">L3</label></div>
 
-    <fieldset>
-      <legend>Nachtmodus</legend>
-      <div class="checkbox-row"><input type="checkbox" id="night_mode_enabled" onchange="onNightToggle()"><label style="margin:0;">Aktiv</label></div>
-      <div id="nightFields">
-        <label>Von</label>
-        <input type="time" id="night_start">
-        <label>Bis</label>
-        <input type="time" id="night_end">
-        <label>Max. Leistung nachts (W)</label>
-        <input type="number" id="night_max_power">
-      </div>
-    </fieldset>
+    <div id="jsonSection">
+      <label>JSON-URL</label>
+      <input type="text" id="json_url" placeholder="http://host/status">
+      <label>JSON-Pfad (Punkt-separiert)</label>
+      <input type="text" id="json_path" placeholder="StatusSNS.SML.DJ_TPWRCURR">
+    </div>
+    <button type="button" class="btn btn-blue" onclick="saveSection('mode')">Betriebsmodus speichern</button>
+    <span class="saved-ok" id="saved-mode"></span>
+  </fieldset>
 
-    <fieldset>
-      <legend>OTA</legend>
-      <label>OTA-Passwort</label>
-      <input type="password" id="ota_pass">
-    </fieldset>
+  <fieldset>
+    <legend>Regelung</legend>
+    <label>Max. Leistung (W)</label>
+    <input type="number" id="max_power">
+    <label>Anzahl der Soyos am Bus (1-12)</label>
+    <input type="number" id="soyo_count" min="1" max="12">
+    <label>Nullpunkt-Offset (W)</label>
+    <input type="number" id="offset">
+    <label>Fallback-Watt</label>
+    <input type="number" id="fallback_watt">
+    <label>Poll-Intervall Shelly/JSON (ms)</label>
+    <input type="number" id="poll_interval_ms" min="400" max="2000" step="50">
+    <div class="hint">400-2000ms. Kleinere Werte reagieren schneller, blockieren
+    den ESP aber länger pro Abfrage (Webinterface kann dabei träge wirken).</div>
+    <button type="button" class="btn btn-blue" onclick="saveSection('regelung')">Regelung speichern</button>
+    <span class="saved-ok" id="saved-regelung"></span>
+  </fieldset>
 
-    <button type="button" class="btn btn-blue" onclick="saveConfig()">Save Controller</button>
-  </form>
+  <fieldset>
+    <legend>Nachtmodus</legend>
+    <div class="checkbox-row"><input type="checkbox" id="night_mode_enabled" onchange="onNightToggle()"><label style="margin:0;">Aktiv</label></div>
+    <div id="nightFields">
+      <label>Von</label>
+      <input type="time" id="night_start">
+      <label>Bis</label>
+      <input type="time" id="night_end">
+      <label>Max. Leistung nachts (W)</label>
+      <input type="number" id="night_max_power">
+    </div>
+    <button type="button" class="btn btn-blue" onclick="saveSection('nacht')">Nachtmodus speichern</button>
+    <span class="saved-ok" id="saved-nacht"></span>
+  </fieldset>
 
+  <fieldset>
+    <legend>OTA</legend>
+    <label>OTA-Passwort</label>
+    <input type="password" id="ota_pass">
+    <div class="hint">Braucht einen Neustart, um wirksam zu werden.</div>
+    <button type="button" class="btn btn-blue" onclick="saveSection('ota')">OTA speichern</button>
+    <span class="saved-ok" id="saved-ota"></span>
+  </fieldset>
+</div>
+
+<div class="card">
+  <h2>Konfiguration sichern</h2>
   <a class="btn btn-muted" href="/config" download="config.json">Config Download</a>
   <br>
   <label>Config-Restore (JSON-Datei)</label>
@@ -230,6 +285,8 @@ a{color:var(--accent);}
 
 <div class="card">
   <a href="/update">Firmware-Update (OTA)</a>
+</div>
+
 </div>
 
 <script>
@@ -257,6 +314,8 @@ function rssiBars(rssi){
 
 function refreshStatus(){
   fetch('/status').then(r=>r.json()).then(d=>{
+    document.getElementById('dotEsp').classList.add('on');
+
     document.getElementById('demand').textContent=d.demand;
     document.getElementById('netz').textContent=Number(d.netz).toFixed(1);
     document.getElementById('modeText').textContent=MODE_NAMES[d.mode]||d.mode;
@@ -270,6 +329,11 @@ function refreshStatus(){
     document.getElementById('apwarning').style.display=d.ap_mode?'block':'none';
     document.getElementById('fallbackWarning').style.display=d.fallback?'block':'none';
 
+    // Soyo antwortet nicht auf jedem Gerät auf den Status-Request (siehe README)
+    // -- "aus" heißt hier nur "keine Antwort", nicht zwingend ein Fehler, deshalb
+    // kein rotes "off", nur grün wenn eine Antwort da ist.
+    document.getElementById('dotSoyo').classList.toggle('on', !!d.soyo);
+
     const soyoSec=document.getElementById('soyoStatus');
     if(d.soyo){
       soyoSec.style.display='block';
@@ -281,15 +345,31 @@ function refreshStatus(){
     } else {
       soyoSec.style.display='none';
     }
-  }).catch(()=>{});
+
+    // Messwertquelle (Shelly/JSON) gibt's nur in den pollenden Modi -- in
+    // Static/HttpInterface/MqttSub blenden wir den Punkt komplett aus, statt
+    // ihn fälschlich rot/grün zu zeigen.
+    const usesSource = (d.mode==3 || d.mode==4 || d.mode==5);
+    const sourceItem = document.getElementById('dotSourceItem');
+    sourceItem.style.display = usesSource ? 'inline-flex' : 'none';
+    if (usesSource) {
+      const sourceDot = document.getElementById('dotSource');
+      sourceDot.classList.toggle('on', !d.fallback);
+      sourceDot.classList.toggle('off', !!d.fallback);
+    }
+  }).catch(()=>{
+    document.getElementById('dotEsp').classList.remove('on');
+  });
 }
 setInterval(refreshStatus,2000);
 refreshStatus();
 
-setInterval(()=>{
-  const hb=document.getElementById('heartbeat');
-  hb.style.opacity=(hb.style.opacity=='0.25')?'1':'0.25';
-},500);
+function switchTab(name){
+  ['main','network','device'].forEach(t=>{
+    document.getElementById('tab-'+t).classList.toggle('active', t===name);
+    document.getElementById('tabbtn-'+t).classList.toggle('active', t===name);
+  });
+}
 
 function notaus(on){
   fetch(on?'/notaus':'/notaus_off').then(refreshStatus);
@@ -303,15 +383,39 @@ function onModeChange(){
   const mode=parseInt(document.getElementById('mode').value);
   document.getElementById('jsonSection').style.display=(mode==5)?'block':'none';
   document.getElementById('staticSection').style.display=(mode==0)?'block':'none';
-  const l1=document.getElementById('shelly_l1'), l2=document.getElementById('shelly_l2'), l3=document.getElementById('shelly_l3');
-  const hint=document.getElementById('shellyHint');
-  if(mode==4){
-    l1.disabled=false; l2.disabled=false; l3.disabled=false;
-    hint.style.display='none';
+  const phaseRadios=['shelly_total','shelly_l1','shelly_l2','shelly_l3'].map(id=>document.getElementById(id));
+  const isShelly=(mode==3||mode==4);
+  phaseRadios.forEach(r=>r.disabled=!isShelly);
+}
+
+// Übersetzt zwischen der Radio-Auswahl (genau eine von Gesamt/L1/L2/L3) im
+// Formular und den drei Bool-Feldern shelly_l1/l2/l3 in der Config: "Gesamt"
+// entspricht "alle drei true" (siehe fetchShellyGen2 in shelly.cpp, das
+// einfach alle aktivierten Phasen aufsummiert).
+function setShellyPhaseRadio(l1, l2, l3){
+  if (l1 && l2 && l3) {
+    document.getElementById('shelly_total').checked = true;
+  } else if (l1 && !l2 && !l3) {
+    document.getElementById('shelly_l1').checked = true;
+  } else if (!l1 && l2 && !l3) {
+    document.getElementById('shelly_l2').checked = true;
+  } else if (!l1 && !l2 && l3) {
+    document.getElementById('shelly_l3').checked = true;
   } else {
-    l1.disabled=true; l2.disabled=true; l3.disabled=true;
-    hint.style.display=(mode==3)?'block':'none';
+    // Uneindeutige/alte Kombination (z.B. zwei Phasen gleichzeitig aus einer
+    // Konfiguration von vor dieser Umstellung) -- sicherer Default: Gesamt.
+    document.getElementById('shelly_total').checked = true;
   }
+}
+
+function getShellyPhaseSelection(){
+  const checked = document.querySelector('input[name="shellyPhase"]:checked');
+  const value = checked ? checked.value : 'total';
+  return {
+    shelly_l1: value==='total' || value==='l1',
+    shelly_l2: value==='total' || value==='l2',
+    shelly_l3: value==='total' || value==='l3'
+  };
 }
 
 function onStaticToggle(){
@@ -344,9 +448,7 @@ function loadConfigForm(){
     document.getElementById('static_watt').value=c.static_watt;
 
     document.getElementById('shelly_ip').value=c.shelly_ip||'';
-    document.getElementById('shelly_l1').checked=!!c.shelly_l1;
-    document.getElementById('shelly_l2').checked=!!c.shelly_l2;
-    document.getElementById('shelly_l3').checked=!!c.shelly_l3;
+    setShellyPhaseRadio(!!c.shelly_l1, !!c.shelly_l2, !!c.shelly_l3);
 
     document.getElementById('json_url').value=c.json_url||'';
     document.getElementById('json_path').value=c.json_path||'';
@@ -355,6 +457,7 @@ function loadConfigForm(){
     document.getElementById('soyo_count').value=c.soyo_count;
     document.getElementById('offset').value=c.offset;
     document.getElementById('fallback_watt').value=c.fallback_watt;
+    document.getElementById('poll_interval_ms').value=c.poll_interval_ms;
 
     document.getElementById('night_mode_enabled').checked=!!c.night_mode_enabled;
     document.getElementById('night_start').value=pad(c.night_start_h)+':'+pad(c.night_start_m);
@@ -369,59 +472,80 @@ function loadConfigForm(){
   });
 }
 
-function buildConfigObject(){
-  function timeParts(id){
-    const v=document.getElementById(id).value||'00:00';
-    const p=v.split(':');
-    return [parseInt(p[0])||0, parseInt(p[1])||0];
-  }
-  const ns=timeParts('night_start'), ne=timeParts('night_end');
+// Jede Sektion baut nur ihr EIGENES Teil-Objekt -- das ist der ganze Trick
+// hinter der Einzelspeicherung: der Server merged nur die enthaltenen Felder
+// in die laufende Konfiguration (siehe configMergeFromJsonString in
+// storage.cpp), alle anderen Einstellungen bleiben unangetastet.
+function timeParts(id){
+  const v=document.getElementById(id).value||'00:00';
+  const p=v.split(':');
+  return [parseInt(p[0])||0, parseInt(p[1])||0];
+}
 
-  return {
+const SECTION_BUILDERS = {
+  wlan: () => ({
     wifi_ssid: document.getElementById('wifi_ssid').value,
     wifi_pass: document.getElementById('wifi_pass').value,
     wifi_static: document.getElementById('wifi_static').checked,
     wifi_ip: document.getElementById('wifi_ip').value,
     wifi_gw: document.getElementById('wifi_gw').value,
     wifi_mask: document.getElementById('wifi_mask').value,
-    wifi_11n: document.getElementById('wifi_11n').checked,
-
+    wifi_11n: document.getElementById('wifi_11n').checked
+  }),
+  mqtt: () => ({
     mqtt_enabled: document.getElementById('mqtt_enabled').checked,
     mqtt_broker: document.getElementById('mqtt_broker').value,
     mqtt_port: parseInt(document.getElementById('mqtt_port').value)||1883,
     mqtt_user: document.getElementById('mqtt_user').value,
     mqtt_pass: document.getElementById('mqtt_pass').value,
     mqtt_sub_topic: document.getElementById('mqtt_sub_topic').value,
-    mqtt_pub_topic: document.getElementById('mqtt_pub_topic').value,
-
+    mqtt_pub_topic: document.getElementById('mqtt_pub_topic').value
+  }),
+  mode: () => Object.assign({
     mode: parseInt(document.getElementById('mode').value),
     static_watt: parseInt(document.getElementById('static_watt').value)||0,
-
     shelly_ip: document.getElementById('shelly_ip').value,
-    shelly_l1: document.getElementById('shelly_l1').checked,
-    shelly_l2: document.getElementById('shelly_l2').checked,
-    shelly_l3: document.getElementById('shelly_l3').checked,
-
     json_url: document.getElementById('json_url').value,
-    json_path: document.getElementById('json_path').value,
-
+    json_path: document.getElementById('json_path').value
+  }, getShellyPhaseSelection()),
+  regelung: () => ({
     max_power: parseInt(document.getElementById('max_power').value)||1200,
     soyo_count: parseInt(document.getElementById('soyo_count').value)||1,
     offset: parseInt(document.getElementById('offset').value)||0,
     fallback_watt: parseInt(document.getElementById('fallback_watt').value)||0,
-
-    night_mode_enabled: document.getElementById('night_mode_enabled').checked,
-    night_start_h: ns[0], night_start_m: ns[1],
-    night_end_h: ne[0], night_end_m: ne[1],
-    night_max_power: parseInt(document.getElementById('night_max_power').value)||0,
-
+    poll_interval_ms: parseInt(document.getElementById('poll_interval_ms').value)||1000
+  }),
+  nacht: () => {
+    const ns=timeParts('night_start'), ne=timeParts('night_end');
+    return {
+      night_mode_enabled: document.getElementById('night_mode_enabled').checked,
+      night_start_h: ns[0], night_start_m: ns[1],
+      night_end_h: ne[0], night_end_m: ne[1],
+      night_max_power: parseInt(document.getElementById('night_max_power').value)||0
+    };
+  },
+  ota: () => ({
     ota_pass: document.getElementById('ota_pass').value
-  };
-}
+  })
+};
 
-function saveConfig(){
-  fetch('/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(buildConfigObject())})
-    .then(()=>alert('Gespeichert, Neustart...'));
+function saveSection(name){
+  const badge = document.getElementById('saved-'+name);
+  if (badge) badge.textContent = 'speichert...';
+
+  fetch('/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(SECTION_BUILDERS[name]())})
+    .then(r => r.text().then(text => ({status: r.status, text})))
+    .then(({status, text}) => {
+      if (status !== 200) {
+        if (badge) badge.textContent = 'Fehler: '+text;
+        return;
+      }
+      if (badge) {
+        badge.textContent = text.indexOf('restarting') !== -1 ? 'Gespeichert, startet neu...' : 'Gespeichert';
+        setTimeout(() => { badge.textContent=''; }, 4000);
+      }
+    })
+    .catch(() => { if (badge) badge.textContent = 'Fehler beim Speichern'; });
 }
 
 function uploadConfig(){
@@ -520,30 +644,48 @@ static void handleConfigGet() {
     server.send(200, "application/json", json);
 }
 
-// Gemeinsame Logik für "Config speichern" (POST /config, von der Web-Maske)
-// und "Config wiederherstellen" (POST /config_upload, aus einer hochgeladenen
-// Datei) -- beide schicken denselben JSON-Text als POST-Body, server.arg("plain")
-// ist bei ESP8266WebServer der Weg, an genau diesen rohen Body heranzukommen.
-static void applyConfigBodyAndRestart() {
+// Gemeinsame Logik für "Config speichern" (POST /config, von der Web-Maske --
+// kann seit der Aufteilung in einzelne Bereiche auch nur ein Teil der Felder
+// enthalten, z.B. nur die WLAN-Felder) und "Config wiederherstellen"
+// (POST /config_upload, aus einer hochgeladenen Datei). Beide schicken den
+// JSON-Text als POST-Body, server.arg("plain") ist bei ESP8266WebServer der
+// Weg, an genau diesen rohen Body heranzukommen.
+//
+// forceRestart=true (config_upload) startet immer neu, unabhängig davon,
+// welche Felder in der Datei stehen -- eine vollständige Wiederherstellung
+// soll zuverlässig mit einem sauberen, frischen Zustand starten. Bei einer
+// Teil-Speicherung aus der Web-Maske (forceRestart=false) entscheidet
+// configMergeFromJsonString anhand der enthaltenen Felder, ob ein Neustart
+// nötig ist (WLAN/MQTT/OTA) oder die Änderung sofort live wirkt.
+static void applyConfigBody(bool forceRestart) {
     String body = server.arg("plain");
-    Config newConfig;
-    if (configFromJsonString(newConfig, body)) {
-        config = newConfig;
-        saveConfig(config);
+    Config newConfig = config; // aktuelle Werte als Basis, damit nicht enthaltene Felder erhalten bleiben
+
+    bool needsRestart = false;
+    if (!configMergeFromJsonString(newConfig, body, needsRestart)) {
+        server.send(400, "text/plain", "Invalid JSON");
+        return;
+    }
+
+    config = newConfig;
+    saveConfig(config);
+
+    if (forceRestart || needsRestart) {
         server.send(200, "text/plain", "OK, restarting...");
         LOG("Config: gespeichert, Neustart");
         scheduleRestart(300);
     } else {
-        server.send(400, "text/plain", "Invalid JSON");
+        server.send(200, "text/plain", "OK");
+        LOG("Config: gespeichert (live uebernommen, kein Neustart noetig)");
     }
 }
 
 static void handleConfigPost() {
-    applyConfigBodyAndRestart();
+    applyConfigBody(false);
 }
 
 static void handleConfigUpload() {
-    applyConfigBodyAndRestart();
+    applyConfigBody(true);
 }
 
 static void handleLog() {

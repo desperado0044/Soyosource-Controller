@@ -1,35 +1,27 @@
 # Soyosource GTN1000/1200 Nulleinspeisungsregler
 
 ESP8266 (NodeMCU v2) Firmware für einen Soyosource GTN1000/1200 Nulleinspeisungsregler.
-Ersetzt die Firmware von [BavarianSuperGuy/Esp-Soyosource-Controller](https://github.com/KlausLi/Esp-Soyosource-Controller)
-mit non-blocking, modularem Code.
+Inspiriert von [BavarianSuperGuy/Esp-Soyosource-Controller](https://github.com/KlausLi/Esp-Soyosource-Controller).
 
 ## Über dieses Projekt
 
-Dieses Projekt ist ein quelloffener Nachbau und eine Weiterentwicklung der Firmware
-von [BavarianSuperGuy (KlausLi)](https://github.com/KlausLi/Esp-Soyosource-Controller),
-dessen Arbeit die Grundlage für dieses Projekt bildet.
+Dieses Projekt ist eine eigenständige, vollständig neu geschriebene Firmware für
+den Soyosource GTN1000/1200, angeregt durch die Arbeit von
+[BavarianSuperGuy (KlausLi)](https://github.com/KlausLi/Esp-Soyosource-Controller),
+der mit seinem Esp-Soyosource-Controller die Idee eines ESP8266-basierten
+Nulleinspeisungsreglers für dieses Wechselrichtermodell bekannt gemacht hat.
 
-Dieses Projekt implementiert denselben Funktionsumfang vollständig neu mit
-folgenden Verbesserungen:
+Eigenschaften dieser Firmware:
 
-- **Non-blocking WiFi**: Vollständig non-blocking implementiert.
-  BSG weist selbst auf WLAN-Einschränkungen hin:
-  *"ich kann keinen besseren Empfang programmiern! und der esp kann auch
-  nix anderes machen wann er ständig versucht sich ins Wlan einzuloggen"*
-  ([Quelle: README von Esp-Soyosource-Controller](https://github.com/KlausLi/Esp-Soyosource-Controller))
+- **Non-blocking WiFi**: WLAN-Verbindungsaufbau und Reconnect laufen non-blocking
+  über eine Zustandsmaschine, ohne den restlichen Betrieb zu blockieren.
 
-- **Werksreset**: BSG nutzt zum erneuten Aufrufen des Configportals einen
-  Doppelreset-Mechanismus (RST-Pin zweimal innerhalb 10 Sekunden auf GND) —
-  so [im README von Esp-Soyosource-Controller beschrieben](https://github.com/KlausLi/Esp-Soyosource-Controller)
-  (Abschnitt "CONFIGPORTAL"). Dieses Projekt verwendet stattdessen GPIO0
-  5 Sekunden beim Boot gedrückt halten (siehe Abschnitt "Werksreset" unten).
+- **Werksreset**: GPIO0 5 Sekunden beim Boot gedrückt halten (siehe Abschnitt
+  "Werksreset" unten).
 
-- **Vollständig quelloffen**: Im [Repository von Esp-Soyosource-Controller](https://github.com/KlausLi/Esp-Soyosource-Controller/tree/main/espflasher)
-  liegt nur ein vorkompiliertes `.bin` samt Flash-Tool, kein Quellcode.
-  Dieser Code ist vollständig einsehbar, anpassbar und verbesserbar.
+- **Vollständig quelloffen**: Jede Zeile Code einsehbar, anpassbar, verbesserbar.
 
-- **Non-blocking HTTP**: Shelly-Polling blockiert nicht den WLAN-Stack
+- **Non-blocking HTTP**: Shelly-Polling blockiert nicht den WLAN-Stack.
 
 - **Fallback-Logik**: Bei Shelly-Ausfall konfigurierbarer Fallback-Watt
   mit definiertem Verhalten und LED-Anzeige.

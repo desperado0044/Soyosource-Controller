@@ -15,6 +15,14 @@ unsigned long g_lastMeasurementMillis = 0;
 static unsigned long lastPollMillis = 0;
 static const unsigned long POLL_INTERVAL_MS = 3000;
 
+// Fallback-Mechanismus: Ein einzelner fehlgeschlagener HTTP-Abruf (z.B. weil
+// der Shelly gerade neu startet) soll noch nicht gleich den Regler in einen
+// Sicherheitsmodus schicken. Erst wenn FALLBACK_TRIGGER_FAILS Abfragen HINTER-
+// EINANDER fehlschlagen, wird g_fallbackActive gesetzt (siehe enterFallback).
+// Genauso wird erst nach mehreren erfolgreichen Antworten in Folge wieder in
+// den Normalbetrieb zurückgeschaltet (siehe leaveFallbackIfReady) -- das
+// verhindert ein "Flackern" zwischen Normal- und Fallback-Zustand bei einer
+// wackligen Verbindung.
 static uint8_t failCount = 0;
 static uint8_t successCount = 0;
 static const uint8_t FALLBACK_TRIGGER_FAILS = 3;
@@ -26,6 +34,11 @@ void shellyBegin() {
     // Kein Setup nötig, HTTPClient wird pro Abfrage neu angelegt.
 }
 
+// Fragt einen Shelly-Gen1-Stromzähler (Shelly EM/3EM alter Generation) über
+// dessen HTTP-API ab und liefert die aktuelle Gesamtleistung in outWatt.
+// Gibt true zurück, wenn die Abfrage geklappt hat, sonst false. Das gemeinsame
+// Grundgerüst (URL bauen, HTTPClient starten, GET, JSON parsen, http.end())
+// wiederholt sich in fetchShellyGen2()/fetchJsonHttp() unten fast identisch.
 static bool fetchShellyGen1(float &outWatt) {
     if (strlen(config.shelly_ip) == 0) return false;
 
@@ -54,6 +67,9 @@ static bool fetchShellyGen1(float &outWatt) {
         LOG(("Shelly Gen1: HTTP-Fehler " + String(code)).c_str());
     }
 
+    // http.end() gibt die HTTP-Verbindung wieder frei. Das muss auf JEDEM
+    // Rückweg passieren, auch bei einem Fehler -- sonst bleiben nach und nach
+    // Verbindungen offen, bis dem ESP8266 der Speicher ausgeht.
     http.end();
     return ok;
 }
@@ -94,17 +110,24 @@ static bool fetchShellyGen2(float &outWatt) {
     return ok;
 }
 
+// Liest einen verschachtelten Wert aus einem JSON-Dokument, dessen Pfad als
+// Punkt-getrennter Text übergeben wird, z.B. "StatusSNS.SML.DJ_TPWRCURR" für
+// { "StatusSNS": { "SML": { "DJ_TPWRCURR": 123 } } }.
+// Funktionsweise: der Pfad wird an jedem "." in einzelne Schlüssel zerlegt
+// (z.B. "StatusSNS", "SML", "DJ_TPWRCURR"), und bei jedem Schlüssel steigt
+// "cur" eine Ebene tiefer ins JSON hinein (cur = cur[key]). Ist irgendwo auf
+// dem Weg der Schlüssel nicht vorhanden, bricht die Funktion mit false ab.
 static bool traverseJsonPath(JsonVariantConst root, const char *path, float &outValue) {
     JsonVariantConst cur = root;
     String pathStr(path);
-    int start = 0;
+    int start = 0; // Position, ab der im Pfad-Text der nächste Schlüssel beginnt
 
     while (start < (int)pathStr.length()) {
-        int dot = pathStr.indexOf('.', start);
+        int dot = pathStr.indexOf('.', start); // Position des nächsten "."; -1 wenn keiner mehr da ist
         String key = (dot == -1) ? pathStr.substring(start) : pathStr.substring(start, dot);
         cur = cur[key];
-        if (cur.isNull()) return false;
-        if (dot == -1) break;
+        if (cur.isNull()) return false; // Schlüssel existiert nicht -> Pfad ist falsch/passt nicht
+        if (dot == -1) break; // letzter Schlüssel im Pfad erreicht
         start = dot + 1;
     }
 

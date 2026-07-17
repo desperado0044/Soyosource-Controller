@@ -12,6 +12,14 @@
 
 ESP8266WebServer server(80);
 
+// Wenn ein Neustart nötig ist (z.B. nach dem Speichern einer neuen
+// Konfiguration), darf man nicht sofort ESP.restart() aufrufen: dann würde
+// die laufende HTTP-Antwort ("OK, gespeichert...") nie beim Browser ankommen,
+// weil die Verbindung mitten drin abreißt. Stattdessen wird hier nur ein
+// Zeitpunkt in der (nahen) Zukunft gemerkt; httpServerLoop() prüft bei jedem
+// Durchlauf, ob dieser Zeitpunkt erreicht ist, und startet erst dann neu --
+// das gibt der Antwort genug Zeit, noch rauszugehen. Auch das ist wieder das
+// millis()-Zeitstempel-Muster statt eines blockierenden delay().
 static bool restartPending = false;
 static unsigned long restartAtMillis = 0;
 
@@ -22,6 +30,15 @@ static void scheduleRestart(unsigned long delayMs) {
 
 // ---------------------------------------------------------------------------
 // Webinterface (Dark-Mode, mobil-optimiert, Auto-Refresh per fetch("/status"))
+//
+// PROGMEM: Dieser HTML/CSS/JS-Text ist mehrere KB groß. Ohne PROGMEM würde er
+// beim Start komplett in den ohnehin knappen RAM des ESP8266 kopiert werden.
+// Mit PROGMEM bleibt er im (viel größeren) Flash-Speicher liegen und wird nur
+// bei Bedarf ausgelesen (server.send_P(...) statt server.send(...), das "_P"
+// steht für "aus PROGMEM lesen").
+// R"rawliteral( ... )rawliteral" ist ein "raw string literal": alles zwischen
+// den Klammern wird 1:1 als Text übernommen, ohne dass z.B. Anführungszeichen
+// im HTML extra escaped werden müssten.
 // ---------------------------------------------------------------------------
 static const char PAGE_HTML[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
@@ -424,10 +441,16 @@ loadConfigForm();
 </html>
 )rawliteral";
 
+// Liefert die komplette Webseite von oben aus. send_P (statt send) liest
+// dabei direkt aus dem PROGMEM-Flash-Speicher.
 static void handleRoot() {
     server.send_P(200, "text/html", PAGE_HTML);
 }
 
+// Liefert die aktuellen Live-Werte als JSON. Das ist genau die URL, die die
+// JavaScript-Funktion refreshStatus() oben in der Webseite alle 2 Sekunden
+// per fetch('/status') abruft, um die Anzeige zu aktualisieren -- ohne dass
+// die Seite dafür neu geladen werden muss.
 static void handleStatus() {
     StaticJsonDocument<1024> doc;
     doc["demand"] = g_demand;
@@ -457,6 +480,12 @@ static void handleStatus() {
     server.send(200, "application/json", out);
 }
 
+// Endpunkt für den Betriebsmodus "HttpInterface" (mode=1): ein externes
+// System (z.B. Home Assistant, Node-RED, ein eigenes Script) ruft periodisch
+// GET /L1L2L3Auto?Value=<zahl> auf, um der Firmware den aktuellen Netz-
+// Messwert zu "pushen". Der Name der URL ist historisch (aus der
+// Ursprungs-Firmware übernommen) und bewusst unverändert, damit bestehende
+// Integrationen, die schon gegen diese URL sprechen, weiter funktionieren.
 static void handleL1L2L3Auto() {
     if (!server.hasArg("Value")) {
         server.send(400, "text/plain", "Missing Value");
@@ -491,6 +520,10 @@ static void handleConfigGet() {
     server.send(200, "application/json", json);
 }
 
+// Gemeinsame Logik für "Config speichern" (POST /config, von der Web-Maske)
+// und "Config wiederherstellen" (POST /config_upload, aus einer hochgeladenen
+// Datei) -- beide schicken denselben JSON-Text als POST-Body, server.arg("plain")
+// ist bei ESP8266WebServer der Weg, an genau diesen rohen Body heranzukommen.
 static void applyConfigBodyAndRestart() {
     String body = server.arg("plain");
     Config newConfig;
@@ -517,6 +550,11 @@ static void handleLog() {
     server.send(200, "application/json", getRingbufferJson());
 }
 
+// server.on(pfad, methode, handlerFunktion) trägt eine "Route" in den
+// Webserver ein: kommt eine Anfrage mit passendem Pfad UND passender
+// HTTP-Methode (GET/POST) rein, wird automatisch die angegebene Funktion
+// aufgerufen. "/config" kommt bewusst zweimal vor (GET und POST) -- das sind
+// zwei unterschiedliche Handler für denselben Pfad, je nach Methode.
 void httpServerBegin() {
     server.on("/", HTTP_GET, handleRoot);
     server.on("/status", HTTP_GET, handleStatus);
@@ -532,6 +570,10 @@ void httpServerBegin() {
     LOG("HTTP-Server gestartet");
 }
 
+// Wird bei jedem Schleifendurchlauf aus der Haupt-loop() (main.cpp) aufgerufen.
+// server.handleClient() schaut nach, ob gerade eine Anfrage reingekommen ist,
+// und ruft bei Bedarf den passenden, oben registrierten Handler auf -- non-
+// blocking, d.h. ist gerade keine Anfrage da, kehrt die Funktion sofort zurück.
 void httpServerLoop() {
     server.handleClient();
     if (restartPending && millis() >= restartAtMillis) {

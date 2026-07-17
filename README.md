@@ -114,6 +114,44 @@ Die letzten 20 Zeilen sind zusätzlich über `GET /log` als JSON abrufbar.
 OTA-Passwort (Feld "OTA-Passwort", Nutzername leer). Während des Uploads wird
 Notaus gesetzt und RS485 pausiert.
 
+## Für Einsteiger: wiederkehrende Code-Muster
+
+Der Code ist kommentiert, aber ein paar Muster tauchen in fast jeder Datei auf.
+Wer sie einmal verstanden hat, kann den restlichen Kommentaren im Code leichter folgen.
+
+- **`static` vor einer Funktion/Variable** bedeutet: nur in dieser einen `.cpp`-Datei
+  sichtbar, sonst nirgendwo im Projekt. Das ist Absicht, kein Tippfehler — es
+  verhindert, dass sich z.B. zwei `lastSendMillis` aus unterschiedlichen Dateien
+  in die Quere kommen.
+- **`extern`** in einer `.h`-Datei ist das Gegenteil: "diese Variable/Funktion gibt
+  es, ihre eigentliche Definition steht in einer `.cpp`-Datei". So teilen sich z.B.
+  `main.cpp` und `http_server.cpp` denselben `config`. Suche nach der Zeile ohne
+  `extern` (meist ganz oben in der passenden `.cpp`), um die echte Definition zu finden.
+- **Kein `delay()`, stattdessen `millis()`-Zeitstempel**: Ein `delay(1000)` würde den
+  ESP8266 eine ganze Sekunde lang komplett blockieren — kein WLAN, kein Webserver,
+  nichts. Stattdessen merkt sich der Code den Zeitpunkt der letzten Aktion
+  (`lastXyzMillis = millis();`) und prüft bei jedem Schleifendurchlauf nur, ob
+  genug Zeit vergangen ist (`if (millis() - lastXyzMillis >= INTERVAL) { ... }`).
+  So kann `loop()` nebenbei weiter WLAN, Webserver usw. bedienen. Das ist das
+  wichtigste Muster im ganzen Projekt und taucht in praktisch jeder Datei auf.
+- **`struct Config` und `enum OperatingMode`**: Ein `struct` ist einfach ein Behälter
+  für mehrere zusammengehörige Werte (hier: alle Einstellungen). Ein `enum` gibt
+  Zahlen sprechende Namen — `MODE_STATIC` ist nur ein anderer Name für `0`, aber
+  deutlich lesbarer als eine nackte `0` im Code.
+- **Callback-Funktionen** (z.B. `mqttCallback`, `onOTAStart`): Diese Funktionen ruft
+  man nicht selbst auf. Man "registriert" sie einmal bei einer Bibliothek
+  (`setCallback(mqttCallback)`), und die Bibliothek ruft sie automatisch auf, sobald
+  das jeweilige Ereignis eintritt (z.B. eine MQTT-Nachricht kommt an).
+- **`StaticJsonDocument<1024> doc; doc["key"] = wert;`**: Das ist die ArduinoJson-
+  Bibliothek. `doc` ist ein JSON-Objekt im Speicher, `<1024>` die maximale Größe in
+  Byte. `serializeJson(doc, ziel)` wandelt es in echten JSON-Text um,
+  `deserializeJson(doc, text)` liest JSON-Text wieder in `doc` ein.
+- **Zwei Zahlen zu einer größeren zusammensetzen** (`(frame[5] << 8) | frame[6]`):
+  RS485/MQTT/JSON übertragen oft 16-Bit-Zahlen als zwei einzelne Bytes. `<< 8`
+  schiebt das erste Byte um 8 Bit nach links (macht daraus quasi die "Zehnerstelle"),
+  `|` fügt das zweite Byte als "Einerstelle" dazu. Beispiel: Bytes `0x01, 0x2C`
+  ergeben `0x012C` = 300.
+
 ## Lizenz
 
 MIT License — siehe [LICENSE](LICENSE).

@@ -15,9 +15,14 @@ static unsigned long lastChangeMillis = 0;
 static bool ledOn = false;
 static uint8_t doubleBlinkStep = 0; // 0..3: an,aus,an,aus, dann Pause
 
+// Die eingebaute LED des NodeMCU ist "active LOW" verdrahtet: Der Pin muss auf
+// LOW gezogen werden, damit die LED leuchtet, und auf HIGH, damit sie aus ist
+// -- genau umgekehrt zu dem, was man intuitiv erwarten würde. Damit man sich
+// im restlichen Code (ledLoop unten) nicht ständig merken muss "LOW=an",
+// kapselt applyLed() das: von außen ruft man einfach applyLed(true) für "an".
 static void applyLed(bool on) {
     ledOn = on;
-    digitalWrite(LED_PIN, on ? LOW : HIGH); // active LOW
+    digitalWrite(LED_PIN, on ? LOW : HIGH);
 }
 
 void ledBegin() {
@@ -25,6 +30,12 @@ void ledBegin() {
     applyLed(false);
 }
 
+// Wird bei jedem Schleifendurchlauf aus der Haupt-loop() (main.cpp) aufgerufen.
+// Erst wird entschieden, WELCHES Blinkmuster gerade gilt (Prioritätsreihenfolge:
+// AP-Setup > Fallback > WLAN-Problem > normal verbunden), danach wird nur für
+// dieses eine Muster geprüft, ob genug Zeit für den nächsten An/Aus-Wechsel
+// vergangen ist. Wie überall in diesem Projekt: kein delay(), nur millis()-
+// Zeitstempel, damit die LED "nebenbei" blinkt, während loop() weiterläuft.
 void ledLoop() {
     unsigned long now = millis();
 
@@ -59,7 +70,10 @@ void ledLoop() {
             break;
 
         case LED_DOUBLE_BLINK: {
-            // Schrittfolge: an(100)-aus(100)-an(100)-aus(700 Pause)
+            // doubleBlinkStep zählt 0,1,2,3,0,1,2,3,... durch (der %4-Operator
+            // sorgt dafür, dass nach 3 wieder bei 0 begonnen wird). Jeder Schritt
+            // hat seine eigene Dauer und An/Aus-Zustand -- zusammen ergibt das
+            // die Sequenz an(100)-aus(100)-an(100)-aus(700, Pause).
             unsigned long stepDuration;
             switch (doubleBlinkStep) {
                 case 0: stepDuration = 100; break;

@@ -5,6 +5,10 @@
 
 #include "telnet_log.h"
 
+// LittleFS ist ein kleines Dateisystem, das im Flash-Speicher des ESP8266
+// lebt -- es überlebt also einen Neustart oder Stromausfall, anders als
+// normale Variablen im RAM. Die komplette Konfiguration wird hier als eine
+// einzige JSON-Datei "/config.json" abgelegt, gelesen und geschrieben.
 static const char *CONFIG_PATH = "/config.json";
 
 void configSetDefaults(Config &c) {
@@ -39,6 +43,12 @@ void configSetDefaults(Config &c) {
     c.night_max_power = 300;
 }
 
+// configToDoc() (Config -> JSON) und docToConfig() (JSON -> Config, weiter
+// unten) sind die einzigen zwei Stellen, die wissen, wie ein Config-Feld auf
+// einen JSON-Schlüssel abgebildet wird. Datei schreiben/lesen UND der
+// Webinterface-Download/-Upload (siehe http_server.cpp) rufen beide nur diese
+// zwei Funktionen auf -- ein neues Config-Feld muss also nur hier in diesen
+// zwei Funktionen ergänzt werden, nicht zusätzlich in jeder aufrufenden Stelle.
 static void configToDoc(const Config &c, JsonDocument &doc) {
     doc["wifi_ssid"] = c.wifi_ssid;
     doc["wifi_pass"] = c.wifi_pass;
@@ -82,6 +92,15 @@ static void configToDoc(const Config &c, JsonDocument &doc) {
     doc["ota_pass"] = c.ota_pass;
 }
 
+// Liest die Werte zurück aus dem JSON-Dokument in das Config-struct.
+// `doc["key"] | Standardwert` ist ArduinoJson-Syntax für "lies den Wert, und
+// falls der Schlüssel fehlt (z.B. weil eine ältere config.json noch nicht
+// alle Felder kennt), nimm stattdessen den Standardwert" -- das verhindert
+// abstürzende oder falsche Werte bei fehlenden/neuen Feldern.
+// strlcpy() statt eines einfachen "=" kopiert Texte sicher in die festen
+// char-Arrays des Config-structs: es schneidet automatisch ab, falls die
+// Quelle länger als das Ziel-Array ist, statt (wie strcpy) über das Ende des
+// Arrays hinauszuschreiben und Speicher zu beschädigen.
 static void docToConfig(JsonDocument &doc, Config &c) {
     strlcpy(c.wifi_ssid, doc["wifi_ssid"] | "", sizeof(c.wifi_ssid));
     strlcpy(c.wifi_pass, doc["wifi_pass"] | "", sizeof(c.wifi_pass));
@@ -124,10 +143,17 @@ static void docToConfig(JsonDocument &doc, Config &c) {
 
     strlcpy(c.ota_pass, doc["ota_pass"] | "", sizeof(c.ota_pass));
 
+    // Sicherheitsnetz gegen ungültige/manipulierte Werte aus einer hochgeladenen
+    // config.json, z.B. via /config_upload -- soyo_count=0 würde später eine
+    // Division durch 0 in der Regellogik (main.cpp) verursachen.
     if (c.soyo_count < 1) c.soyo_count = 1;
     if (c.soyo_count > 4) c.soyo_count = 4;
 }
 
+// Muss als Erstes aufgerufen werden, bevor irgendetwas anderes auf LittleFS
+// zugreift. Falls das Dateisystem beschädigt ist (z.B. nach einem Firmware-
+// Wechsel mit anderer Partitionsgröße) und sich nicht mounten lässt, wird es
+// einmalig formatiert -- danach ist es leer, aber wieder benutzbar.
 bool storageBegin() {
     if (!LittleFS.begin()) {
         LOG("LittleFS: Mount fehlgeschlagen, formatiere neu");

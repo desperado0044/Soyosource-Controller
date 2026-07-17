@@ -12,15 +12,25 @@ enum OperatingMode : uint8_t {
     MODE_JSON_HTTP       = 5  // generischer JSON-HTTP-Client
 };
 
+// Alle Einstellungen des Geräts in einem einzigen Behälter (struct). Es gibt
+// genau ein Config-Objekt im ganzen Projekt (siehe "extern Config config;"
+// unten und dessen Definition in main.cpp) — jedes Modul, das eine Einstellung
+// braucht, greift auf dasselbe Objekt zu.
+//
+// Texte werden bewusst als feste char-Arrays (z.B. char wifi_ssid[64])
+// gespeichert statt als Arduino-String: die Größe steht damit von vornherein
+// fest, was zum 1:1 passenden JSON-Format in /config.json passt und
+// Speicherfragmentierung auf dem ESP8266 vermeidet (String wächst/schrumpft
+// dynamisch auf dem Heap, was auf Dauer instabil werden kann).
 struct Config {
     // WiFi
     char wifi_ssid[64];
     char wifi_pass[64];
-    bool wifi_static;
+    bool wifi_static;      // true = feste IP unten verwenden statt DHCP
     char wifi_ip[16];
     char wifi_gw[16];
     char wifi_mask[16];
-    bool wifi_11n;
+    bool wifi_11n;          // erzwingt WLAN-Standard 802.11n (hilft bei manchen Routern/Störungen)
 
     // MQTT
     bool     mqtt_enabled;
@@ -44,15 +54,19 @@ struct Config {
     char json_path[64]; // Punkt-separiert, z.B. "StatusSNS.SML.DJ_TPWRCURR"
 
     // Regelung
-    uint16_t max_power;
-    uint8_t  soyo_count;
-    int16_t  offset;
-    uint16_t fallback_watt;
+    uint16_t max_power;      // Obergrenze für den Sollwert in Watt (Sicherheitslimit)
+    uint8_t  soyo_count;     // Anzahl parallel angeschlossener Soyo-Geräte (1-4);
+                             // der Messwert wird durch diese Zahl geteilt, bevor er
+                             // auf den Sollwert aufaddiert wird (siehe main.cpp)
+    int16_t  offset;         // wird zu jedem Messwert addiert, um z.B. einen leicht
+                             // falsch kalibrierten Stromzähler auszugleichen
+    uint16_t fallback_watt;  // Sollwert, wenn die Messwertquelle wiederholt ausfällt
 
-    // Nachtmodus
+    // Nachtmodus: begrenzt die maximale Leistung in einem Zeitfenster, z.B. um
+    // nachts leiser/schonender zu fahren
     bool     night_mode_enabled;
-    uint8_t  night_start_h, night_start_m;
-    uint8_t  night_end_h,   night_end_m;
+    uint8_t  night_start_h, night_start_m; // Beginn, z.B. 22:00
+    uint8_t  night_end_h,   night_end_m;   // Ende, z.B. 06:00 (darf über Mitternacht gehen)
     uint16_t night_max_power;
 
     // OTA

@@ -16,6 +16,12 @@ static DNSServer dnsServer;
 static unsigned long lastAttemptMillis = 0;
 static uint8_t failCount = 0;
 
+// Startet einen eigenen WLAN-Access-Point ("SOYO-Setup"), zu dem man sich mit
+// dem Handy verbindet, um das Gerät erstmalig einzurichten. Der DNSServer
+// beantwortet dabei JEDE Namensauflösungsanfrage ("*") mit der eigenen IP
+// 10.0.0.1 -- das ist der Trick hinter einem "Captive Portal": das Handy denkt,
+// es müsste sich erst irgendwo einloggen, und öffnet von selbst eine
+// Browser-Seite, die dann direkt auf unserem Webinterface landet.
 static void startApMode() {
     WiFi.mode(WIFI_AP);
     IPAddress apIP(10, 0, 0, 1);
@@ -57,13 +63,18 @@ void wifiMgrBegin() {
     }
 }
 
+// Wird bei jedem Schleifendurchlauf aus der Haupt-loop() (main.cpp) aufgerufen.
+// Statt auf ein Verbindungs-Event zu warten, wird hier bei jedem Aufruf einfach
+// kurz nachgeschaut, was WiFi.status() gerade sagt ("Polling") -- einfacher zu
+// verstehen als Callback-basierte Events und für dieses Projekt ausreichend
+// schnell.
 void wifiMgrLoop() {
     if (state == WIFI_STATE_AP_MODE) {
-        dnsServer.processNextRequest();
+        dnsServer.processNextRequest(); // beantwortet DNS-Anfragen für das Captive Portal
         return;
     }
 
-    MDNS.update();
+    MDNS.update(); // hält "soyo.local" im lokalen Netz auffindbar
     unsigned long now = millis();
 
     switch (state) {
@@ -76,6 +87,12 @@ void wifiMgrLoop() {
                     LOG("mDNS: soyo.local aktiv");
                 }
             } else if (now - lastAttemptMillis >= CONNECT_TIMEOUT_MS) {
+                // Nach CONNECT_TIMEOUT_MS ohne Erfolg: einfach nochmal versuchen.
+                // Erst nach mehreren Fehlversuchen in Folge (MAX_FAILS_BEFORE_FORCE)
+                // wird zusätzlich ein WiFi.disconnect() davorgeschaltet, das den
+                // WLAN-Stack des ESP8266 komplett zurücksetzt -- das hilft in
+                // hartnäckigen Fällen, ist aber etwas "brachialer" als ein
+                // normales erneutes WiFi.begin().
                 failCount++;
                 LOG(("WiFi: Verbindungsversuch fehlgeschlagen (" + String(failCount) + "/5)").c_str());
                 if (failCount >= MAX_FAILS_BEFORE_FORCE) {

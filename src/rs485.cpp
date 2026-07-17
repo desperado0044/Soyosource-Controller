@@ -17,6 +17,11 @@ static const unsigned long SEND_INTERVAL_MS = 3000;
 static unsigned long lastStatusRequestMillis = 0;
 static const unsigned long STATUS_REQUEST_INTERVAL_MS = 10000;
 
+// Kleine Zustandsmaschine für den Sendevorgang: TX_IDLE = Bus frei, wir können
+// senden oder empfangen. TX_HOLD_DE = wir haben gerade ein Frame geschrieben
+// und halten DE/RE noch kurz auf HIGH, bevor wir zurück auf Empfang schalten
+// (siehe handleTxTiming). Ohne diese zwei Zustände bräuchte man ein blockierendes
+// delay() direkt nach dem Senden -- das ist in diesem Projekt verboten.
 enum TxPhase { TX_IDLE, TX_HOLD_DE };
 static TxPhase txPhase = TX_IDLE;
 static unsigned long txHoldStartMillis = 0;
@@ -57,16 +62,24 @@ static void sendFrame(const uint8_t *frame, uint8_t len) {
     logFrameHex("RS485 TX: ", frame, len);
 }
 
+// Baut das 8-Byte-Kommando, mit dem der Soyosource-Wechselrichter angewiesen
+// wird, genau "watt" Watt einzuspeisen. Byte 0-3 sind ein fester, vom
+// Wechselrichter vorgegebener Befehls-Header (siehe README). Byte 4/5 sind
+// der Watt-Wert, aufgeteilt in High-Byte und Low-Byte (siehe README, Abschnitt
+// "Für Einsteiger" zu <<8 und |). Byte 7 ist eine simple Prüfsumme, mit der
+// der Wechselrichter erkennt, ob die Übertragung fehlerfrei war; die Formel
+// "264 - byte[4] - byte[5]" ist vom Hersteller/Protokoll fest vorgegeben,
+// keine eigene Erfindung.
 static void sendDemandFrame(uint16_t watt) {
     uint8_t frame[8];
     frame[0] = 0x24;
     frame[1] = 0x56;
     frame[2] = 0x00;
     frame[3] = 0x21;
-    frame[4] = (watt >> 8) & 0xFF;
-    frame[5] = watt & 0xFF;
+    frame[4] = (watt >> 8) & 0xFF; // High-Byte (obere 8 Bit) des Watt-Werts
+    frame[5] = watt & 0xFF;        // Low-Byte (untere 8 Bit) des Watt-Werts
     frame[6] = 0x80;
-    frame[7] = (uint8_t)((264 - frame[4] - frame[5]) & 0xFF);
+    frame[7] = (uint8_t)((264 - frame[4] - frame[5]) & 0xFF); // Prüfsumme
     sendFrame(frame, 8);
 }
 
@@ -105,6 +118,8 @@ static void parseStatusResponse(const uint8_t *frame) {
         return;
     }
 
+    // Jeweils zwei Bytes zu einer 16-Bit-Zahl zusammensetzen (siehe README,
+    // Abschnitt "Für Einsteiger" zu <<8 und |).
     uint16_t battRaw = (frame[5] << 8) | frame[6];
     uint16_t currRaw = (frame[7] << 8) | frame[8];
     uint16_t acRaw = (frame[9] << 8) | frame[10];
@@ -133,6 +148,12 @@ static void parseStatusResponse(const uint8_t *frame) {
     LOG(("RS485: Status-Response empfangen (Status=" + String(g_soyoStatus.operationStatus) + ")").c_str());
 }
 
+// Nähert den tatsächlich gesendeten Sollwert (g_demand) schrittweise an den
+// gewünschten Sollwert (targetDemand) an, statt ihn sprunghaft zu ändern.
+// Große Sprünge (z.B. von 0W auf 800W) könnten den Wechselrichter/die Batterie
+// unnötig belasten, deshalb wird bei einer Differenz >100W nur in 50W-Schritten
+// pro Aufruf (= alle 3 Sekunden, siehe rs485Loop) angenähert. Bei Notaus wird
+// diese Rampe übersprungen und sofort auf 0 gesprungen -- das ist Absicht.
 static void applyDemandRamp() {
     if (g_notaus) {
         targetDemand = 0;
@@ -144,10 +165,13 @@ static void applyDemandRamp() {
         } else if (diff < -100) {
             g_demand -= 50;
         } else {
-            g_demand = targetDemand;
+            g_demand = targetDemand; // kleiner Rest: in einem Schritt fertig angleichen
         }
     }
 
+    // Nur senden, wenn sich wirklich etwas geändert hat -- spart unnötigen
+    // Bus-Traffic, falls sich der Sollwert gerade nicht (oder nur um Rundungs-
+    // Rauschen von <1W) bewegt.
     if (lastSentDemand < 0 || abs(g_demand - lastSentDemand) > 1) {
         sendDemandFrame((uint16_t)g_demand);
         LOG(("RS485: Demand " + String(lastSentDemand) + "W -> " + String(g_demand) + "W").c_str());
@@ -157,13 +181,22 @@ static void applyDemandRamp() {
 
 void rs485Begin() {
     pinMode(RS485_DE_RE_PIN, OUTPUT);
-    setDE(false);
+    setDE(false); // erstmal auf Empfang schalten
+    // 4800 Baud, 8 Datenbits, kein Paritätsbit, 1 Stoppbit -- feste Vorgabe
+    // des Soyosource-Protokolls, nicht verhandelbar.
     Serial.begin(4800, SERIAL_8N1);
 }
 
+// Wird bei jedem Schleifendurchlauf aus der Haupt-loop() (main.cpp) aufgerufen.
+// Macht bei jedem Aufruf nur wenig Arbeit und kehrt schnell zurück -- so bleibt
+// die Firmware insgesamt reaktionsschnell (kein delay(), kein Blockieren).
 void rs485Loop() {
     handleTxTiming();
 
+    // Empfangene Bytes einsammeln, bis ein komplettes 15-Byte-Antwort-Frame
+    // beisammen ist. Serial.available()/read() liefern immer nur einzelne,
+    // bereits angekommene Bytes -- ein ganzes Frame kommt über mehrere
+    // Schleifendurchläufe verteilt an.
     while (Serial.available()) {
         uint8_t b = Serial.read();
         if (rxIndex == 0 && b != RX_FRAME_HEADER) {
@@ -177,11 +210,15 @@ void rs485Loop() {
     }
 
     if (paused) {
-        return;
+        return; // OTA-Update läuft, RS485 pausiert (siehe rs485Pause)
     }
 
     unsigned long now = millis();
 
+    // Status-Request hat Vorrang vor dem normalen Sollwert-Senden, da der Bus
+    // Half-Duplex ist (siehe rs485.h) und pro Durchlauf nur ein Frame rausgeht.
+    // Kommt gerade ein Status-Request dran, überspringen wir in diesem
+    // Durchlauf das Demand-Senden (return) und holen es beim nächsten Mal nach.
     if (txPhase == TX_IDLE && now - lastStatusRequestMillis >= STATUS_REQUEST_INTERVAL_MS) {
         lastStatusRequestMillis = now;
         sendStatusRequestFrame();

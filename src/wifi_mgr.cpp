@@ -32,6 +32,18 @@ static void startApMode() {
     LOG("WiFi: AP-Modus gestartet (SOYO-Setup, 10.0.0.1)");
 }
 
+// mDNS (soyo.local) muss nach JEDEM neuen Verbindungsaufbau erneut gestartet
+// werden, nicht nur beim allerersten Mal: nach einem Verbindungsabbruch und
+// -wiederaufbau (WIFI_STATE_STA_RECONNECTING -> WIFI_STATE_STA_CONNECTED)
+// kann sich z.B. die IP-Adresse geändert haben, und der mDNS-Responder bleibt
+// sonst an die alte, nicht mehr gültige Verbindung gebunden -- soyo.local
+// wäre dann bis zum nächsten Neustart nicht mehr erreichbar.
+static void startMdns() {
+    if (MDNS.begin("soyo")) {
+        LOG("mDNS: soyo.local aktiv");
+    }
+}
+
 static void startStaConnect() {
     WiFi.mode(WIFI_STA);
     if (config.wifi_11n) {
@@ -83,9 +95,7 @@ void wifiMgrLoop() {
                 state = WIFI_STATE_STA_CONNECTED;
                 failCount = 0;
                 LOG(("WiFi: verbunden, IP " + WiFi.localIP().toString()).c_str());
-                if (MDNS.begin("soyo")) {
-                    LOG("mDNS: soyo.local aktiv");
-                }
+                startMdns();
             } else if (now - lastAttemptMillis >= CONNECT_TIMEOUT_MS) {
                 // Nach CONNECT_TIMEOUT_MS ohne Erfolg: einfach nochmal versuchen.
                 // Erst nach mehreren Fehlversuchen in Folge (MAX_FAILS_BEFORE_FORCE)
@@ -119,6 +129,7 @@ void wifiMgrLoop() {
                 state = WIFI_STATE_STA_CONNECTED;
                 failCount = 0;
                 LOG(("WiFi: wiederverbunden, IP " + WiFi.localIP().toString()).c_str());
+                startMdns();
             } else if (now - lastAttemptMillis >= RECONNECT_INTERVAL_MS) {
                 lastAttemptMillis = now;
                 failCount++;

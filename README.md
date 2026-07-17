@@ -13,17 +13,33 @@ dessen Arbeit die Grundlage für dieses Projekt bildet.
 Der Quellcode seiner Firmware ist nicht verfügbar. Dieses Projekt implementiert
 denselben Funktionsumfang vollständig neu mit folgenden Verbesserungen:
 
-- **Non-blocking WiFi**: Kein blockierendes Reconnect — stabile Verbindung auch bei
-  schwachem Signal (BSGs bekanntes Problem: ESP hängt beim Reconnect, WLAN bricht weg)
-- **Kein versehentlicher Werksreset**: BSG nutzt Doppelreset-Mechanismus — kurzer
-  Stromausfall kann Konfiguration löschen. Hier: nur GPIO0 beim Boot (5s halten)
-- **Vollständig quelloffen**: Jede Zeile Code einsehbar, anpassbar, verbesserbar
+- **Non-blocking WiFi**: Vollständig non-blocking implementiert.
+  BSG weist selbst auf WLAN-Einschränkungen hin:
+  *"ich kann keinen besseren Empfang programmieren, und der ESP kann auch
+  nix anderes machen wann er ständig versucht sich ins WLAN einzuloggen"*
+  ([Quelle](https://github.com/KlausLi/Esp-Soyosource-Controller))
+
+- **Kein versehentlicher Werksreset**: BSG nutzt einen Doppelreset-Mechanismus
+  (im README dokumentiert) — ein kurzer Stromausfall beim Booten kann die
+  Konfiguration löschen. Hier: Werksreset nur durch 5s Halten von GPIO0
+  beim Boot.
+
+- **Vollständig quelloffen**: BSGs Firmware wird ausschließlich als
+  kompiliertes .bin bereitgestellt. Dieser Code ist vollständig einsehbar,
+  anpassbar und verbesserbar.
+
 - **Non-blocking HTTP**: Shelly-Polling blockiert nicht den WLAN-Stack
-- **Fallback-Logik**: Bei Shelly-Ausfall konfigurierbarer Fallback-Watt statt unkontrolliertem Verhalten
-- **Telnet-Logging**: Echtzeit-Diagnose ohne seriellen Adapter
-- **HA Auto-Discovery**: Automatische Integration in Home Assistant
-- **Nachtmodus**: Leistungsbegrenzung per Uhrzeit
-- **Config-Backup/Restore**: Konfiguration exportieren und importieren
+
+- **Fallback-Logik**: Bei Shelly-Ausfall konfigurierbarer Fallback-Watt
+  mit definiertem Verhalten und LED-Anzeige.
+
+- **Telnet-Logging**: Echtzeit-Diagnose ohne seriellen Adapter (Port 23).
+
+- **HA Auto-Discovery**: Automatische Integration in Home Assistant per MQTT.
+
+- **Nachtmodus**: Leistungsbegrenzung per Uhrzeit (NTP-basiert).
+
+- **Config-Backup/Restore**: Konfiguration als JSON exportieren und importieren.
 
 ## Hardware
 

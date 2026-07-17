@@ -33,6 +33,17 @@ static const uint8_t RX_FRAME_LEN = 15;
 static const uint8_t RX_FRAME_HEADER = 0x23;
 static uint8_t rxBuffer[RX_FRAME_LEN];
 static uint8_t rxIndex = 0;
+static unsigned long lastRxByteMillis = 0;
+
+// Bei 4800 Baud kommt ein 15-Byte-Frame als ein zusammenhängender Schwall
+// Bytes an (~31ms). Geht dabei ein Byte verloren (z.B. durch eine kurze
+// Störung auf dem Bus), würde rxIndex sonst für immer >0 bleiben und ewig auf
+// die fehlenden Bytes warten -- jede spätere, an sich saubere Antwort würde
+// nie mehr korrekt eingelesen. RX_IDLE_TIMEOUT_MS fängt das ab: kommt mitten
+// in einem angefangenen Frame für diese Zeit kein weiteres Byte an, gilt der
+// Frame als verloren und wird verworfen, damit auf den nächsten Header-Byte
+// (0x23) neu synchronisiert werden kann.
+static const unsigned long RX_IDLE_TIMEOUT_MS = 50;
 
 // Sanity-Grenzen für die Status-Response, um Fehl-Synchronisation auf dem
 // Bus (verschobene/verstümmelte Frames) zu erkennen und zu verwerfen.
@@ -193,12 +204,20 @@ void rs485Begin() {
 void rs485Loop() {
     handleTxTiming();
 
+    // Angefangenes, aber nicht rechtzeitig vervollständigtes Frame verwerfen
+    // (siehe Kommentar bei RX_IDLE_TIMEOUT_MS oben) und neu synchronisieren.
+    if (rxIndex > 0 && millis() - lastRxByteMillis >= RX_IDLE_TIMEOUT_MS) {
+        LOG("RS485: unvollständige Status-Response verworfen (Timeout)");
+        rxIndex = 0;
+    }
+
     // Empfangene Bytes einsammeln, bis ein komplettes 15-Byte-Antwort-Frame
     // beisammen ist. Serial.available()/read() liefern immer nur einzelne,
     // bereits angekommene Bytes -- ein ganzes Frame kommt über mehrere
     // Schleifendurchläufe verteilt an.
     while (Serial.available()) {
         uint8_t b = Serial.read();
+        lastRxByteMillis = millis();
         if (rxIndex == 0 && b != RX_FRAME_HEADER) {
             continue; // auf Frame-Start (0x23) warten
         }

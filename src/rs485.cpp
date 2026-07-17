@@ -12,7 +12,7 @@ static int32_t lastSentDemand = -1; // erzwingt den ersten Sendevorgang
 static bool    paused = false;
 
 static unsigned long lastSendMillis = 0;
-static const unsigned long SEND_INTERVAL_MS = 1000;
+static const unsigned long SEND_INTERVAL_MS = 500;
 
 static unsigned long lastStatusRequestMillis = 0;
 static const unsigned long STATUS_REQUEST_INTERVAL_MS = 10000;

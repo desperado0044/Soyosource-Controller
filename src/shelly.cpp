@@ -13,7 +13,7 @@ float         g_netzwert = 0;
 unsigned long g_lastMeasurementMillis = 0;
 
 static unsigned long lastPollMillis = 0;
-static const unsigned long POLL_INTERVAL_MS = 1000;
+static const unsigned long POLL_INTERVAL_MS = 500;
 
 // Fallback-Mechanismus: Ein einzelner fehlgeschlagener HTTP-Abruf (z.B. weil
 // der Shelly gerade neu startet) soll noch nicht gleich den Regler in einen

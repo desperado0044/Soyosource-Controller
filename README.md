@@ -72,7 +72,7 @@ formatiert, Gerät startet neu und geht wieder in den AP-Setup-Modus.
 - **Static**: Ausgang konstant auf `static_watt` (kein externer Messwert nötig).
 - **HttpInterface**: externe Quelle pusht Messwert per `GET /L1L2L3Auto?Value=<watt>`.
 - **MqttSub**: Messwert kommt per MQTT-Subscribe auf `mqtt_sub_topic`.
-- **Shelly Gen1 / Gen2 Pro**: Firmware pollt den Shelly per HTTP (alle 1s).
+- **Shelly Gen1 / Gen2 Pro**: Firmware pollt den Shelly per HTTP (alle 500ms).
 - **JSON HTTP Client**: generischer Poll gegen eine beliebige JSON-URL mit
   Punkt-separiertem Pfad (z.B. `StatusSNS.SML.DJ_TPWRCURR`).
 

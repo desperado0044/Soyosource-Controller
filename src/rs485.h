@@ -42,7 +42,7 @@ void rs485Loop();
 
 // Setzt den gewünschten Zielsollwert. Begrenzung (max_power, Nachtmodus, ...)
 // muss der Aufrufer bereits vorgenommen haben. Sendelogik (direkt übernommen,
-// nur bei Änderung >1W, alle 1000ms) übernimmt rs485Loop().
+// nur bei Änderung >1W, alle 500ms) übernimmt rs485Loop().
 void rs485SetTargetDemand(int32_t watts);
 
 // Für OTA: stoppt jegliches Senden und hält DE/RE auf Empfang (LOW).

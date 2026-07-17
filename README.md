@@ -10,23 +10,24 @@ Dieses Projekt ist ein quelloffener Nachbau und eine Weiterentwicklung der Firmw
 von [BavarianSuperGuy (KlausLi)](https://github.com/KlausLi/Esp-Soyosource-Controller),
 dessen Arbeit die Grundlage für dieses Projekt bildet.
 
-Der Quellcode seiner Firmware ist nicht verfügbar. Dieses Projekt implementiert
-denselben Funktionsumfang vollständig neu mit folgenden Verbesserungen:
+Dieses Projekt implementiert denselben Funktionsumfang vollständig neu mit
+folgenden Verbesserungen:
 
 - **Non-blocking WiFi**: Vollständig non-blocking implementiert.
   BSG weist selbst auf WLAN-Einschränkungen hin:
-  *"ich kann keinen besseren Empfang programmieren, und der ESP kann auch
-  nix anderes machen wann er ständig versucht sich ins WLAN einzuloggen"*
-  ([Quelle](https://github.com/KlausLi/Esp-Soyosource-Controller))
+  *"ich kann keinen besseren Empfang programmiern! und der esp kann auch
+  nix anderes machen wann er ständig versucht sich ins Wlan einzuloggen"*
+  ([Quelle: README von Esp-Soyosource-Controller](https://github.com/KlausLi/Esp-Soyosource-Controller))
 
-- **Kein versehentlicher Werksreset**: BSG nutzt einen Doppelreset-Mechanismus
-  (im README dokumentiert) — ein kurzer Stromausfall beim Booten kann die
-  Konfiguration löschen. Hier: Werksreset nur durch 5s Halten von GPIO0
-  beim Boot.
+- **Werksreset**: BSG nutzt zum erneuten Aufrufen des Configportals einen
+  Doppelreset-Mechanismus (RST-Pin zweimal innerhalb 10 Sekunden auf GND) —
+  so [im README von Esp-Soyosource-Controller beschrieben](https://github.com/KlausLi/Esp-Soyosource-Controller)
+  (Abschnitt "CONFIGPORTAL"). Dieses Projekt verwendet stattdessen GPIO0
+  5 Sekunden beim Boot gedrückt halten (siehe Abschnitt "Werksreset" unten).
 
-- **Vollständig quelloffen**: BSGs Firmware wird ausschließlich als
-  kompiliertes .bin bereitgestellt. Dieser Code ist vollständig einsehbar,
-  anpassbar und verbesserbar.
+- **Vollständig quelloffen**: Im [Repository von Esp-Soyosource-Controller](https://github.com/KlausLi/Esp-Soyosource-Controller/tree/main/espflasher)
+  liegt nur ein vorkompiliertes `.bin` samt Flash-Tool, kein Quellcode.
+  Dieser Code ist vollständig einsehbar, anpassbar und verbesserbar.
 
 - **Non-blocking HTTP**: Shelly-Polling blockiert nicht den WLAN-Stack
 

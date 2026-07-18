@@ -57,7 +57,7 @@ static void mqttCallback(char *topic, byte *payload, unsigned int length) {
 static void publishDiscoverySensor(const char *objectId, const char *name, const char *unit,
                                     const char *valueTemplate, const char *deviceClass,
                                     bool isBinary) {
-    StaticJsonDocument<1024> doc;
+    JsonDocument doc;
     doc["name"] = name;
     doc["uniq_id"] = String("soyo_") + objectId;     // eindeutige ID der Entität in HA
     doc["stat_t"] = config.mqtt_pub_topic;            // state_topic: wo HA den Wert abliest
@@ -129,7 +129,7 @@ static void publishPeriodic() {
     if (now - lastPublishMillis < PUBLISH_INTERVAL_MS) return;
     lastPublishMillis = now;
 
-    StaticJsonDocument<512> doc;
+    JsonDocument doc;
     doc["demand"] = g_demand;
     doc["netz"] = g_netzwert;
     doc["rssi"] = WiFi.RSSI();

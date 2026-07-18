@@ -204,7 +204,7 @@ bool loadConfig(Config &c) {
         return false;
     }
 
-    StaticJsonDocument<1024> doc;
+    JsonDocument doc;
     DeserializationError err = deserializeJson(doc, f);
     f.close();
 
@@ -218,7 +218,7 @@ bool loadConfig(Config &c) {
 }
 
 bool saveConfig(const Config &c) {
-    StaticJsonDocument<1024> doc;
+    JsonDocument doc;
     configToDoc(c, doc);
 
     File f = LittleFS.open(CONFIG_PATH, "w");
@@ -237,7 +237,7 @@ bool saveConfig(const Config &c) {
 }
 
 String configToJsonString(const Config &c) {
-    StaticJsonDocument<1024> doc;
+    JsonDocument doc;
     configToDoc(c, doc);
     String out;
     serializeJson(doc, out);
@@ -262,7 +262,7 @@ static bool jsonNeedsRestart(JsonDocument &doc) {
 }
 
 bool configMergeFromJsonString(Config &c, const String &json, bool &outNeedsRestart) {
-    StaticJsonDocument<1024> doc;
+    JsonDocument doc;
     DeserializationError err = deserializeJson(doc, json);
     if (err) {
         LOG(("Config: Upload JSON-Fehler " + String(err.c_str())).c_str());

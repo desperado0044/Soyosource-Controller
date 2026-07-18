@@ -75,7 +75,7 @@ static bool fetchShellyGen1(float &outWatt) {
     int code = http.GET();
     bool ok = false;
     if (code == HTTP_CODE_OK) {
-        StaticJsonDocument<1024> doc;
+        JsonDocument doc;
         DeserializationError err = deserializeJson(doc, http.getString());
         if (!err) {
             bool allPhases = config.shelly_l1 && config.shelly_l2 && config.shelly_l3;
@@ -123,7 +123,7 @@ static bool fetchShellyGen2(float &outWatt) {
     int code = http.GET();
     bool ok = false;
     if (code == HTTP_CODE_OK) {
-        StaticJsonDocument<1024> doc;
+        JsonDocument doc;
         DeserializationError err = deserializeJson(doc, http.getString());
         if (!err) {
             float sum = 0;
@@ -183,7 +183,7 @@ static bool fetchJsonHttp(float &outWatt) {
     int code = http.GET();
     bool ok = false;
     if (code == HTTP_CODE_OK) {
-        StaticJsonDocument<1024> doc;
+        JsonDocument doc;
         DeserializationError err = deserializeJson(doc, http.getString());
         if (!err) {
             ok = traverseJsonPath(doc.as<JsonVariantConst>(), config.json_path, outWatt);

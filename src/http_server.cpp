@@ -576,7 +576,7 @@ static void handleHelpContent() {
 // per fetch('/status') abruft, um die Anzeige zu aktualisieren -- ohne dass
 // die Seite dafür neu geladen werden muss.
 static void handleStatus() {
-    StaticJsonDocument<1024> doc;
+    JsonDocument doc;
     doc["demand"] = g_demand;
     doc["netz"] = g_netzwert;
     doc["rssi"] = WiFi.RSSI();

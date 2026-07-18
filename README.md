@@ -213,10 +213,12 @@ Wer sie einmal verstanden hat, kann den restlichen Kommentaren im Code leichter 
   man nicht selbst auf. Man "registriert" sie einmal bei einer Bibliothek
   (`setCallback(mqttCallback)`), und die Bibliothek ruft sie automatisch auf, sobald
   das jeweilige Ereignis eintritt (z.B. eine MQTT-Nachricht kommt an).
-- **`StaticJsonDocument<1024> doc; doc["key"] = wert;`**: Das ist die ArduinoJson-
-  Bibliothek. `doc` ist ein JSON-Objekt im Speicher, `<1024>` die maximale Größe in
-  Byte. `serializeJson(doc, ziel)` wandelt es in echten JSON-Text um,
-  `deserializeJson(doc, text)` liest JSON-Text wieder in `doc` ein.
+- **`JsonDocument doc; doc["key"] = wert;`**: Das ist die ArduinoJson-Bibliothek
+  (Version 7). `doc` ist ein JSON-Objekt im Speicher, das seine Größe bei Bedarf
+  automatisch anpasst -- anders als in älteren ArduinoJson-Versionen muss man
+  keine feste Maximalgröße mehr angeben. `serializeJson(doc, ziel)` wandelt es
+  in echten JSON-Text um, `deserializeJson(doc, text)` liest JSON-Text wieder
+  in `doc` ein.
 - **Zwei Zahlen zu einer größeren zusammensetzen** (`(frame[5] << 8) | frame[6]`):
   RS485/MQTT/JSON übertragen oft 16-Bit-Zahlen als zwei einzelne Bytes. `<< 8`
   schiebt das erste Byte um 8 Bit nach links (macht daraus quasi die "Zehnerstelle"),

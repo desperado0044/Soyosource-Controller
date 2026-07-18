@@ -47,7 +47,7 @@ void addToRingbuffer(const String &msg) {
 }
 
 String getRingbufferJson() {
-    StaticJsonDocument<1024> doc;
+    JsonDocument doc;
     JsonArray arr = doc.to<JsonArray>();
 
     for (uint8_t i = 0; i < ringCount; i++) {

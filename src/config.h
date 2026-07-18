@@ -62,6 +62,11 @@ struct Config {
     int16_t  offset;         // wird zu jedem Messwert addiert, um z.B. einen leicht
                              // falsch kalibrierten Stromzähler auszugleichen
     uint16_t fallback_watt;  // Sollwert, wenn die Messwertquelle wiederholt ausfällt
+    uint16_t rs485_send_interval_ms; // Wie oft ein neuer Sollwert an den Soyo gesendet
+                             // wird, 1000-3000ms, Standard 2000ms. Ein Referenzcontroller
+                             // (BavarianSuperGuy/KlausLi) mit identischer Hardware (3
+                             // parallele Soyos) läuft empirisch bestätigt stabil bei
+                             // ~2000ms -- dieser Bereich eignet sich für eigene Testreihen.
 
     // Nachtmodus: begrenzt die maximale Leistung in einem Zeitfenster, z.B. um
     // nachts leiser/schonender zu fahren

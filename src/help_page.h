@@ -63,7 +63,8 @@ static const char HELP_HTML[] PROGMEM = R"rawliteral(
   <div class="row"><span>Anzahl der Soyos am Bus (1-12)</span><span>Sollwert wird durch diese Zahl geteilt, wenn mehrere Soyo-Geräte parallel am selben RS485-Bus hängen</span></div>
   <div class="row"><span>Nullpunkt-Offset (W)</span><span>wird zu jedem Messwert addiert, gleicht z.B. eine leicht falsch kalibrierte Messquelle aus</span></div>
   <div class="row"><span>Fallback-Watt</span><span>Sollwert, wenn die Messwertquelle wiederholt nicht antwortet</span></div>
-  <div class="row"><span>Poll-Intervall (ms)</span><span>wie oft Shelly/JSON abgefragt werden (400-2000ms); der RS485-Sendezyklus selbst läuft unabhängig davon alle 500ms</span></div>
+  <div class="row"><span>Poll-Intervall (ms)</span><span>wie oft Shelly/JSON abgefragt werden (400-2000ms)</span></div>
+  <div class="row"><span>RS485-Sendeintervall (ms)</span><span>wie oft ein neuer Sollwert an den Soyo gesendet wird (1000-3000ms, Standard 2000ms); zu häufige oder zu seltene Updates können den Soyo unvorhersehbar reagieren lassen, siehe README</span></div>
   <p class="hint">Änderungen hier wirken sofort, ohne Neustart.</p>
 </div>
 

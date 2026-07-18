@@ -1,5 +1,6 @@
 #include "rs485.h"
 
+#include "config.h"
 #include "telnet_log.h"
 
 int32_t    g_demand = 0;
@@ -11,21 +12,33 @@ static int32_t targetDemand = 0;
 static int32_t lastSentDemand = -1; // erzwingt den ersten Sendevorgang
 static bool    paused = false;
 
+static unsigned long lastSentMillis = 0;
+// Sollwert auch ohne Änderung spätestens in diesem Abstand erneut senden
+// (siehe applyDemand): Ohne diesen Keepalive würde ein einzelnes, auf dem Bus
+// verlorenes Frame (Kollision, Störung) dauerhaft unbemerkt bleiben, sobald
+// sich der Sollwert danach eine Weile nicht mehr ändert -- wir glauben dann,
+// der Soyo hätte den neuen Wert, tatsächlich steht er noch auf dem alten.
+static const unsigned long DEMAND_KEEPALIVE_MS = 15000;
+
+// Wie oft ein neuer Sollwert gesendet wird -- konfigurierbar über
+// config.rs485_send_interval_ms (Webinterface: Regelung), siehe Kommentar
+// dort für den Hintergrund (Soyo reagiert bei zu häufigen Updates
+// unvorhersehbar).
 static unsigned long lastSendMillis = 0;
-static const unsigned long SEND_INTERVAL_MS = 500;
 
 static unsigned long lastStatusRequestMillis = 0;
 static const unsigned long STATUS_REQUEST_INTERVAL_MS = 10000;
 
-// Kleine Zustandsmaschine für den Sendevorgang: TX_IDLE = Bus frei, wir können
-// senden oder empfangen. TX_HOLD_DE = wir haben gerade ein Frame geschrieben
-// und halten DE/RE noch kurz auf HIGH, bevor wir zurück auf Empfang schalten
-// (siehe handleTxTiming). Ohne diese zwei Zustände bräuchte man ein blockierendes
-// delay() direkt nach dem Senden -- das ist in diesem Projekt verboten.
-enum TxPhase { TX_IDLE, TX_HOLD_DE };
-static TxPhase txPhase = TX_IDLE;
-static unsigned long txHoldStartMillis = 0;
-static const unsigned long TX_HOLD_MS = 2;
+// Frühere Version hielt DE/RE zeitgesteuert (fester Timer) auf HIGH und gab
+// erst beim nächsten loop()-Durchlauf wieder frei -- das hing davon ab, dass
+// rs485Loop() rechtzeitig erneut aufgerufen wird. shellyLoop() blockiert aber
+// laut eigenem Kommentar dort 100-450ms pro HTTP-Abfrage: lag ein Sendevorgang
+// direkt davor, blieb DE weit über die eigentlich nötigen ~17ms hinaus auf
+// HIGH hängen und hat die Gegenseite auf dem gemeinsamen Half-Duplex-Bus
+// unnötig lange am Antworten/Senden gehindert. sendFrame() unten wartet jetzt
+// stattdessen synchron per Serial.flush(), bis das Frame wirklich komplett
+// gesendet ist, und schaltet DE im selben Aufruf sofort zurück -- keine
+// Abhängigkeit mehr vom Timing des nächsten loop()-Durchlaufs.
 
 // Antwort-Frame (15 Byte, Header 0x23) ist länger als die Sende-Frames (8 Byte,
 // Header 0x24) und beginnt mit einem anderen Header-Byte.
@@ -73,8 +86,8 @@ static void logFrameHex(const char *prefix, const uint8_t *frame, uint8_t len) {
 static void sendFrame(const uint8_t *frame, uint8_t len) {
     setDE(true);
     Serial.write(frame, len);
-    txPhase = TX_HOLD_DE;
-    txHoldStartMillis = millis();
+    Serial.flush(); // blockiert bis der UART-Sendepuffer wirklich leer ist (~16,7ms bei 8 Byte/4800 Baud)
+    setDE(false);
     logFrameHex("RS485 TX: ", frame, len);
 }
 
@@ -104,13 +117,6 @@ static void sendStatusRequestFrame() {
     sendFrame(frame, 8);
 }
 
-static void handleTxTiming() {
-    if (txPhase == TX_HOLD_DE && millis() - txHoldStartMillis >= TX_HOLD_MS) {
-        setDE(false);
-        txPhase = TX_IDLE;
-    }
-}
-
 // Status-Response-Layout (15 Byte):
 //   [0]     0x23 Header
 //   [1]     0x01
@@ -129,7 +135,13 @@ static void handleTxTiming() {
 // kommt einfach keine Response an, g_soyoStatus.valid bleibt false und die
 // Soyo-Statuszeile im Webinterface bleibt leer/ausgeblendet.
 static void parseStatusResponse(const uint8_t *frame) {
-    if (frame[0] != RX_FRAME_HEADER) {
+    // Nicht nur Byte 0 (Header) pruefen, sondern wie syssi/esphome-soyosource-
+    // gtn-virtual-meter auch Byte 1-3 gegen das erwartete, feste Muster
+    // 0x01 0x01 0x00 -- ein Frame, das nur zufaellig mit 0x23 beginnt, aber
+    // sonst verschoben/verstuemmelt ist, faellt so schon hier auf, statt sich
+    // erst auf die deutlich groberen Plausibilitaetsgrenzen weiter unten
+    // (Batteriespannung/AC-Spannung/Temperatur) verlassen zu muessen.
+    if (frame[0] != RX_FRAME_HEADER || frame[1] != 0x01 || frame[2] != 0x01 || frame[3] != 0x00) {
         LOG("RS485: Status-Response verworfen (falscher Header)");
         return;
     }
@@ -164,11 +176,11 @@ static void parseStatusResponse(const uint8_t *frame) {
     LOG(("RS485: Status-Response empfangen (Status=" + String(g_soyoStatus.operationStatus) + ")").c_str());
 }
 
-// Übernimmt den gewünschten Sollwert (targetDemand) direkt als tatsächlich
-// gesendeten Sollwert (g_demand) -- keine Rampe, keine Verzögerung. Das war
-// früher anders (schrittweise 50W/Zyklus zum Schutz vor abrupten Leistungs-
-// sprüngen), wurde aber auf Wunsch entfernt: der Sollwert soll so schnell wie
-// möglich der tatsächlichen Situation folgen.
+// Rampe (100W-Schritte ab 150W Abweichung) testweise wieder entfernt, um den
+// Effekt des rs485_send_interval_ms allein beurteilen zu können (siehe
+// README/Commit-Historie) -- direkte Übernahme des Zielsollwerts, keine
+// Glättung. Bei Bedarf wieder einbauen, falls das Sendeintervall allein nicht
+// ausreicht.
 static void applyDemand() {
     if (g_notaus) {
         targetDemand = 0;
@@ -177,11 +189,17 @@ static void applyDemand() {
 
     // Nur senden, wenn sich wirklich etwas geändert hat -- spart unnötigen
     // Bus-Traffic, falls sich der Sollwert gerade nicht (oder nur um Rundungs-
-    // Rauschen von <1W) bewegt.
-    if (lastSentDemand < 0 || abs(g_demand - lastSentDemand) > 1) {
+    // Rauschen von <1W) bewegt. Spätestens alle DEMAND_KEEPALIVE_MS aber auch
+    // ohne Änderung erneut senden (siehe Kommentar dort).
+    bool changed = lastSentDemand < 0 || abs(g_demand - lastSentDemand) > 1;
+    bool keepaliveDue = millis() - lastSentMillis >= DEMAND_KEEPALIVE_MS;
+
+    if (changed || keepaliveDue) {
         sendDemandFrame((uint16_t)g_demand);
-        LOG(("RS485: Demand " + String(lastSentDemand) + "W -> " + String(g_demand) + "W").c_str());
+        LOG(("RS485: Demand " + String(lastSentDemand) + "W -> " + String(g_demand) + "W" +
+             (changed ? "" : " (Keepalive)")).c_str());
         lastSentDemand = g_demand;
+        lastSentMillis = millis();
     }
 }
 
@@ -198,8 +216,6 @@ void rs485Begin() {
 // Macht bei jedem Aufruf nur wenig Arbeit und kehrt schnell zurück -- so bleibt
 // die Firmware insgesamt reaktionsschnell (kein delay(), kein Blockieren).
 void rs485Loop() {
-    handleTxTiming();
-
     // Angefangenes, aber nicht rechtzeitig vervollständigtes Frame verwerfen
     // (siehe Kommentar bei RX_IDLE_TIMEOUT_MS oben) und neu synchronisieren.
     if (rxIndex > 0 && millis() - lastRxByteMillis >= RX_IDLE_TIMEOUT_MS) {
@@ -234,13 +250,13 @@ void rs485Loop() {
     // Half-Duplex ist (siehe rs485.h) und pro Durchlauf nur ein Frame rausgeht.
     // Kommt gerade ein Status-Request dran, überspringen wir in diesem
     // Durchlauf das Demand-Senden (return) und holen es beim nächsten Mal nach.
-    if (txPhase == TX_IDLE && now - lastStatusRequestMillis >= STATUS_REQUEST_INTERVAL_MS) {
+    if (now - lastStatusRequestMillis >= STATUS_REQUEST_INTERVAL_MS) {
         lastStatusRequestMillis = now;
         sendStatusRequestFrame();
         return;
     }
 
-    if (now - lastSendMillis >= SEND_INTERVAL_MS) {
+    if (now - lastSendMillis >= config.rs485_send_interval_ms) {
         lastSendMillis = now;
         applyDemand();
     }
@@ -255,7 +271,6 @@ void rs485Pause(bool pause) {
     paused = pause;
     if (pause) {
         setDE(false);
-        txPhase = TX_IDLE;
         LOG("RS485: pausiert (OTA)");
     } else {
         LOG("RS485: fortgesetzt");

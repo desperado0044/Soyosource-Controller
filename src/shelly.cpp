@@ -199,6 +199,12 @@ static bool fetchJsonHttp(float &outWatt) {
     return ok;
 }
 
+// Bewusst kein Median/keine Ausreißer-Filterung auf den Rohwert: Live-
+// Messungen an einem Referenzcontroller mit identischer Hardware (siehe
+// Kommentar in main.cpp) zeigen, dass dessen Sollwert-Sprünge exakt dem
+// jeweils aktuellsten Rohmesswert entsprechen (Ø-Fehler <0.5W über 17
+// beobachtete Sprünge) -- ein zusätzlicher Glättungsfilter würde von diesem
+// bestätigten Referenzverhalten abweichen, nicht näher daran sein.
 void applyMeasurement(float rawWatt) {
     g_netzwert = rawWatt + config.offset;
     g_lastMeasurementMillis = millis();

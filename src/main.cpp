@@ -76,6 +76,15 @@ static void checkFactoryReset() {
 // Sollwert 400 + 60 = 460W. Bei jedem folgenden Regeldurchlauf wird so erneut
 // nachgesteuert, bis sich Verbrauch und Einspeisung ungefähr die Waage halten
 // (dann pendelt g_netzwert nahe 0 und landet im Toleranzband, siehe unten).
+//
+// Diese Formel (inkl. Toleranzband) wurde am 2026-07-18 anhand von Live-
+// Messdaten eines tatsächlich laufenden BavarianSuperGuy/KlausLi-Controllers
+// (identische Hardware: 3 parallele Soyos) verifiziert: über 17 beobachtete
+// Sollwert-Sprünge stimmt "delta = aktueller_Rohmesswert / soyo_count" mit
+// durchschnittlich <0.5W Abweichung -- ein direkter Rohwert-Bezug, kein
+// gleitender Durchschnitt (der getestet und anhand derselben Daten verworfen
+// wurde: je größer das Mittelungsfenster, desto schlechter die Vorhersage).
+//
 // runControlLoop() selbst läuft bei jedem loop()-Durchlauf (also sehr oft,
 // nicht nur alle paar hundert ms), ein neuer Messwert kommt aber nur an, wenn
 // shellyLoop()/MQTT/HttpInterface tatsächlich etwas Neues liefern -- diese

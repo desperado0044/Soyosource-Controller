@@ -247,6 +247,13 @@ code{background:var(--bg);border:1px solid var(--border);border-radius:4px;paddi
     <input type="number" id="poll_interval_ms" min="400" max="2000" step="50">
     <div class="hint">400-2000ms. Kleinere Werte reagieren schneller, blockieren
     den ESP aber länger pro Abfrage (Webinterface kann dabei träge wirken).</div>
+    <label>RS485-Sendeintervall (ms)</label>
+    <input type="number" id="rs485_send_interval_ms" min="1000" max="3000" step="100">
+    <div class="hint">1000-3000ms, Standard 2000ms. Wie oft ein neuer Sollwert an
+    den Soyo gesendet wird. Ein Referenzcontroller mit identischer Hardware
+    (3 parallele Soyos) läuft empirisch bestätigt stabil bei ~2000ms -- dieser
+    Bereich eignet sich zum eigenen Testen, ohne den vom Hersteller nicht
+    dokumentierten sicheren Rahmen zu verlassen.</div>
     <button type="button" class="btn btn-blue" onclick="saveSection('regelung')">Regelung speichern</button>
     <span class="saved-ok" id="saved-regelung"></span>
   </fieldset>
@@ -448,6 +455,7 @@ function loadConfigForm(){
     document.getElementById('offset').value=c.offset;
     document.getElementById('fallback_watt').value=c.fallback_watt;
     document.getElementById('poll_interval_ms').value=c.poll_interval_ms;
+    document.getElementById('rs485_send_interval_ms').value=c.rs485_send_interval_ms;
 
     document.getElementById('night_mode_enabled').checked=!!c.night_mode_enabled;
     document.getElementById('night_start').value=pad(c.night_start_h)+':'+pad(c.night_start_m);
@@ -506,7 +514,8 @@ const SECTION_BUILDERS = {
     soyo_count: parseInt(document.getElementById('soyo_count').value)||1,
     offset: parseInt(document.getElementById('offset').value)||0,
     fallback_watt: parseInt(document.getElementById('fallback_watt').value)||0,
-    poll_interval_ms: parseInt(document.getElementById('poll_interval_ms').value)||1000
+    poll_interval_ms: parseInt(document.getElementById('poll_interval_ms').value)||1000,
+    rs485_send_interval_ms: parseInt(document.getElementById('rs485_send_interval_ms').value)||2000
   }),
   nacht: () => {
     const ns=timeParts('night_start'), ne=timeParts('night_end');

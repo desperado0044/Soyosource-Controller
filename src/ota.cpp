@@ -31,6 +31,7 @@ static void onOTAStart() {
 static void onOTAEnd(bool success) {
     LOG(success ? "OTA: Update erfolgreich" : "OTA: Update fehlgeschlagen");
     digitalWrite(RS485_DE_RE_PIN, HIGH);
+    digitalWrite(RS485_RE_PIN, HIGH);
     ESP.wdtEnable(0);
     ESP.restart();
 }

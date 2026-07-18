@@ -35,16 +35,30 @@ Eigenschaften dieser Firmware:
 
 ## Hardware
 
-| Funktion        | GPIO      |
-|------------------|-----------|
-| RS485 TX         | GPIO1 (TX0) |
-| RS485 RX         | GPIO3 (RX0) |
-| RS485 DE/RE      | GPIO14 (D5) |
-| Flash-Button     | GPIO0 (Werksreset: 5s beim Boot gedrückt halten) |
-| LED (onboard)    | GPIO2, active LOW |
+| Funktion         | GPIO        | Modul-Pin (Aufdruck) |
+|------------------|-------------|----------------------|
+| RS485 TX         | GPIO1 (TX0) | DI (Data In)         |
+| RS485 RX         | GPIO3 (RX0) | RO (Receiver Output) |
+| RS485 DE         | GPIO14 (D5) | DE                   |
+| RS485 RE (optional, siehe unten) | GPIO12 (D6) | RE |
+| Flash-Button     | GPIO0 (Werksreset: 5s beim Boot gedrückt halten) | — |
+| LED (onboard)    | GPIO2, active LOW | — |
 
-RS485-Modul TX/RX werden an den Hardware-UART (Serial) angeschlossen, dieser wird
-ausschließlich für RS485 verwendet — kein Debug-Output über Serial.
+Modul-Pins `VCC`/`GND`: 3.3V/GND vom ESP. Modul-Pins `A`/`B`: RS485-Bus zum
+Soyosource-Wechselrichter (nicht mit dem ESP verbunden, nur mit dessen RS485-
+Anschluss).
+
+**DE/RE-Verkabelung, zwei Varianten:**
+1. **DE und RE auf dem Modul verlötet/gebrückt** (klassisch): nur eine Leitung
+   zum ESP nötig, an GPIO14/D5. GPIO12/D6 bleibt unbenutzt.
+2. **DE und RE getrennt, ohne Löten am Modul**: DE → GPIO14/D5, RE → GPIO12/D6
+   (benachbarter Pin). Die Firmware schreibt auf beide GPIOs ohnehin immer
+   denselben Pegel (DE ist active HIGH, RE ist active LOW, beide brauchen in
+   Sende- wie Empfangsrichtung zufällig denselben Wert — siehe [rs485.h](src/rs485.h)),
+   daher funktioniert diese Variante ohne jede Softwareänderung.
+
+RS485-Modul TX/RX (also DI/RO) werden an den Hardware-UART (Serial) angeschlossen,
+dieser wird ausschließlich für RS485 verwendet — kein Debug-Output über Serial.
 
 ## Build & Flash
 
@@ -114,11 +128,13 @@ formatiert, Gerät startet neu und geht wieder in den AP-Setup-Modus.
 - **Shelly Gen1 / Gen2 Pro**: Firmware pollt den Shelly per HTTP, Intervall
   einstellbar (`poll_interval_ms`, 400-2000ms, Standard 1000ms; Feld "Poll-
   Intervall Shelly/JSON" im Webinterface). Der RS485-Sendezyklus läuft davon
-  unabhängig weiterhin alle 500ms. Messwertquelle wählbar als Gesamtleistung
-  (L1+L2+L3) oder genau eine einzelne Phase (Radio-Auswahl im Webinterface,
-  gegenseitig ausschließend) — bei beiden Generationen gleich, Gen1 liefert
-  die Einzelphasen über das `emeters`-Array seiner `/status`-Antwort, Gen2
-  über `a_act_power`/`b_act_power`/`c_act_power`.
+  unabhängig weiterhin alle 500ms. Phasen L1/L2/L3 frei kombinierbar über drei
+  unabhängige Checkboxen im Webinterface (Standard: alle drei angehakt =
+  Gesamtleistung; genauso z.B. nur L1+L2 möglich) — bei beiden Generationen
+  gleich, Gen1 liefert die Einzelphasen über das `emeters`-Array seiner
+  `/status`-Antwort, Gen2 über `a_act_power`/`b_act_power`/`c_act_power`.
+  Ein einzelner HTTP-Request liefert dabei immer alle drei Phasen auf einmal,
+  unabhängig von der Auswahl.
 - **JSON HTTP Client**: generischer Poll gegen eine beliebige JSON-URL mit
   Punkt-separiertem Pfad (z.B. `StatusSNS.SML.DJ_TPWRCURR`), gleiches
   einstellbares Poll-Intervall wie bei Shelly.

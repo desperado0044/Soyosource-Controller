@@ -51,8 +51,13 @@ static const float SANITY_MAX_BATTERY_V = 150.0f;
 static const float SANITY_MAX_AC_V = 300.0f;
 static const float SANITY_MAX_TEMP_C = 200.0f;
 
+// Schreibt denselben Pegel auf beide DE/RE-Pins (siehe Erklärung in rs485.h,
+// warum DE und RE immer denselben Wert bekommen). Ist RS485_RE_PIN nicht
+// angeschlossen (DE/RE stattdessen auf dem Modul gebrückt), hat dieser
+// zusätzliche digitalWrite() einfach keine Wirkung.
 static void setDE(bool high) {
     digitalWrite(RS485_DE_RE_PIN, high ? HIGH : LOW);
+    digitalWrite(RS485_RE_PIN, high ? HIGH : LOW);
 }
 
 static void logFrameHex(const char *prefix, const uint8_t *frame, uint8_t len) {
@@ -182,6 +187,7 @@ static void applyDemand() {
 
 void rs485Begin() {
     pinMode(RS485_DE_RE_PIN, OUTPUT);
+    pinMode(RS485_RE_PIN, OUTPUT);
     setDE(false); // erstmal auf Empfang schalten
     // 4800 Baud, 8 Datenbits, kein Paritätsbit, 1 Stoppbit -- feste Vorgabe
     // des Soyosource-Protokolls, nicht verhandelbar.

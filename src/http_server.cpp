@@ -9,6 +9,7 @@
 #include "shelly.h"
 #include "wifi_mgr.h"
 #include "telnet_log.h"
+#include "help_page.h"
 
 ESP8266WebServer server(80);
 
@@ -77,6 +78,7 @@ width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);backgro
 .checkbox-row input{width:20px;height:20px;}
 .hint{font-size:.82em;color:var(--muted);margin-top:4px;}
 a{color:var(--accent);}
+code{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:.9em;}
 #staticIpFields,#jsonSection,#nightFields,#staticSection{display:none;}
 .status-dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--muted);margin-right:4px;vertical-align:middle;}
 .status-dot.on{background:var(--green);}
@@ -101,6 +103,7 @@ a{color:var(--accent);}
   <button type="button" class="tab-btn active" id="tabbtn-main" onclick="switchTab('main')">Hauptseite</button>
   <button type="button" class="tab-btn" id="tabbtn-device" onclick="switchTab('device')">Gerätekonfig</button>
   <button type="button" class="tab-btn" id="tabbtn-network" onclick="switchTab('network')">Netzwerkkonfig</button>
+  <button type="button" class="tab-btn" id="tabbtn-help" onclick="switchTab('help')">Help</button>
 </div>
 
 <div class="tab-panel active" id="tab-main">
@@ -215,11 +218,10 @@ a{color:var(--accent);}
 
     <label>Shelly IP</label>
     <input type="text" id="shelly_ip" placeholder="192.168.1.50">
-    <label>Phase (Gen1 &amp; Gen2, entweder Gesamt oder genau eine Phase)</label>
-    <div class="checkbox-row"><input type="radio" name="shellyPhase" id="shelly_total" value="total"><label style="margin:0;" for="shelly_total">Gesamt (L1+L2+L3)</label></div>
-    <div class="checkbox-row"><input type="radio" name="shellyPhase" id="shelly_l1" value="l1"><label style="margin:0;" for="shelly_l1">L1</label></div>
-    <div class="checkbox-row"><input type="radio" name="shellyPhase" id="shelly_l2" value="l2"><label style="margin:0;" for="shelly_l2">L2</label></div>
-    <div class="checkbox-row"><input type="radio" name="shellyPhase" id="shelly_l3" value="l3"><label style="margin:0;" for="shelly_l3">L3</label></div>
+    <label>Phasen (Gen1 &amp; Gen2, beliebig kombinierbar -- alle drei angehakt = Gesamtleistung)</label>
+    <div class="checkbox-row"><input type="checkbox" id="shelly_l1"><label style="margin:0;">L1</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="shelly_l2"><label style="margin:0;">L2</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="shelly_l3"><label style="margin:0;">L3</label></div>
 
     <div id="jsonSection">
       <label>JSON-URL</label>
@@ -287,6 +289,9 @@ a{color:var(--accent);}
   <a href="/update">Firmware-Update (OTA)</a>
 </div>
 
+</div>
+<div class="tab-panel" id="tab-help">
+  <p class="hint">Lädt...</p>
 </div>
 
 <script>
@@ -364,11 +369,24 @@ function refreshStatus(){
 setInterval(refreshStatus,2000);
 refreshStatus();
 
+let helpLoaded=false;
+
 function switchTab(name){
-  ['main','network','device'].forEach(t=>{
+  ['main','network','device','help'].forEach(t=>{
     document.getElementById('tab-'+t).classList.toggle('active', t===name);
     document.getElementById('tabbtn-'+t).classList.toggle('active', t===name);
   });
+  // Help-Inhalt liegt nicht in dieser Seite, sondern in einer eigenen Datei
+  // (help_page.h) und wird erst beim ersten Öffnen nachgeladen -- danach
+  // bleibt er im DOM und muss nicht erneut abgerufen werden.
+  if (name==='help' && !helpLoaded) {
+    fetch('/help_content').then(r=>r.text()).then(html=>{
+      document.getElementById('tab-help').innerHTML=html;
+      helpLoaded=true;
+    }).catch(()=>{
+      document.getElementById('tab-help').innerHTML='<p class="hint">Hilfe konnte nicht geladen werden.</p>';
+    });
+  }
 }
 
 function notaus(on){
@@ -383,39 +401,9 @@ function onModeChange(){
   const mode=parseInt(document.getElementById('mode').value);
   document.getElementById('jsonSection').style.display=(mode==5)?'block':'none';
   document.getElementById('staticSection').style.display=(mode==0)?'block':'none';
-  const phaseRadios=['shelly_total','shelly_l1','shelly_l2','shelly_l3'].map(id=>document.getElementById(id));
+  const phaseBoxes=['shelly_l1','shelly_l2','shelly_l3'].map(id=>document.getElementById(id));
   const isShelly=(mode==3||mode==4);
-  phaseRadios.forEach(r=>r.disabled=!isShelly);
-}
-
-// Übersetzt zwischen der Radio-Auswahl (genau eine von Gesamt/L1/L2/L3) im
-// Formular und den drei Bool-Feldern shelly_l1/l2/l3 in der Config: "Gesamt"
-// entspricht "alle drei true" (siehe fetchShellyGen2 in shelly.cpp, das
-// einfach alle aktivierten Phasen aufsummiert).
-function setShellyPhaseRadio(l1, l2, l3){
-  if (l1 && l2 && l3) {
-    document.getElementById('shelly_total').checked = true;
-  } else if (l1 && !l2 && !l3) {
-    document.getElementById('shelly_l1').checked = true;
-  } else if (!l1 && l2 && !l3) {
-    document.getElementById('shelly_l2').checked = true;
-  } else if (!l1 && !l2 && l3) {
-    document.getElementById('shelly_l3').checked = true;
-  } else {
-    // Uneindeutige/alte Kombination (z.B. zwei Phasen gleichzeitig aus einer
-    // Konfiguration von vor dieser Umstellung) -- sicherer Default: Gesamt.
-    document.getElementById('shelly_total').checked = true;
-  }
-}
-
-function getShellyPhaseSelection(){
-  const checked = document.querySelector('input[name="shellyPhase"]:checked');
-  const value = checked ? checked.value : 'total';
-  return {
-    shelly_l1: value==='total' || value==='l1',
-    shelly_l2: value==='total' || value==='l2',
-    shelly_l3: value==='total' || value==='l3'
-  };
+  phaseBoxes.forEach(b=>b.disabled=!isShelly);
 }
 
 function onStaticToggle(){
@@ -448,7 +436,9 @@ function loadConfigForm(){
     document.getElementById('static_watt').value=c.static_watt;
 
     document.getElementById('shelly_ip').value=c.shelly_ip||'';
-    setShellyPhaseRadio(!!c.shelly_l1, !!c.shelly_l2, !!c.shelly_l3);
+    document.getElementById('shelly_l1').checked=!!c.shelly_l1;
+    document.getElementById('shelly_l2').checked=!!c.shelly_l2;
+    document.getElementById('shelly_l3').checked=!!c.shelly_l3;
 
     document.getElementById('json_url').value=c.json_url||'';
     document.getElementById('json_path').value=c.json_path||'';
@@ -501,13 +491,16 @@ const SECTION_BUILDERS = {
     mqtt_sub_topic: document.getElementById('mqtt_sub_topic').value,
     mqtt_pub_topic: document.getElementById('mqtt_pub_topic').value
   }),
-  mode: () => Object.assign({
+  mode: () => ({
     mode: parseInt(document.getElementById('mode').value),
     static_watt: parseInt(document.getElementById('static_watt').value)||0,
     shelly_ip: document.getElementById('shelly_ip').value,
+    shelly_l1: document.getElementById('shelly_l1').checked,
+    shelly_l2: document.getElementById('shelly_l2').checked,
+    shelly_l3: document.getElementById('shelly_l3').checked,
     json_url: document.getElementById('json_url').value,
     json_path: document.getElementById('json_path').value
-  }, getShellyPhaseSelection()),
+  }),
   regelung: () => ({
     max_power: parseInt(document.getElementById('max_power').value)||1200,
     soyo_count: parseInt(document.getElementById('soyo_count').value)||1,
@@ -569,6 +562,13 @@ loadConfigForm();
 // dabei direkt aus dem PROGMEM-Flash-Speicher.
 static void handleRoot() {
     server.send_P(200, "text/html", PAGE_HTML);
+}
+
+// Inhalt des Help-Tabs, ausgelagert nach help_page.h -- wird nur beim ersten
+// Öffnen des Tabs per fetch() nachgeladen (siehe switchTab() im <script>
+// weiter unten), nicht Teil von PAGE_HTML.
+static void handleHelpContent() {
+    server.send_P(200, "text/html", HELP_HTML);
 }
 
 // Liefert die aktuellen Live-Werte als JSON. Das ist genau die URL, die die
@@ -699,6 +699,7 @@ static void handleLog() {
 // zwei unterschiedliche Handler für denselben Pfad, je nach Methode.
 void httpServerBegin() {
     server.on("/", HTTP_GET, handleRoot);
+    server.on("/help_content", HTTP_GET, handleHelpContent);
     server.on("/status", HTTP_GET, handleStatus);
     server.on("/L1L2L3Auto", HTTP_GET, handleL1L2L3Auto);
     server.on("/notaus", HTTP_GET, handleNotaus);

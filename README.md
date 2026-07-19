@@ -3,6 +3,25 @@
 ESP8266 (NodeMCU v2) Firmware für einen Soyosource GTN1000/1200 Nulleinspeisungsregler.
 Inspiriert von [BavarianSuperGuy/Esp-Soyosource-Controller](https://github.com/KlausLi/Esp-Soyosource-Controller).
 
+## Sicherheitshinweis
+
+Dieses Projekt ist ein privates Hobby-Projekt, kein zertifiziertes Produkt. Es
+greift in die Regelung eines netzgekoppelten Wechselrichters ein — Fehler in
+Konfiguration, Verkabelung oder Firmware können zu unerwünschter
+Netzeinspeisung oder Sachschäden führen. Es gelten die Vorgaben deines
+Netzbetreibers/EVU zur Nulleinspeisung — das musst du selbst prüfen, bevor du
+das Gerät produktiv einsetzt.
+
+Aktueller Stand: getestet an genau einem Aufbau (3 parallele Soyosource
+GTN1000/1200 an einem RS485-Bus), seit dem 17.07.2026 in Entwicklung/
+Testbetrieb — kein langjähriger Dauerbetrieb, keine Tests an anderer Hardware
+oder anderen Soyo-Firmware-Ständen. Live gemessen: RS485-Sendezyklus im
+Schnitt 1100,8ms bei konfigurierten 1100ms (Jitter ±30-40ms),
+Shelly-Poll-Antwortzeit 80-250ms bei 500ms-Intervall — daraus ergibt sich eine
+Latenz von Netzänderung bis RS485-Sollwert von grob bis zu ~1,6s im Worst
+Case. Keine Garantie, keine Haftung (siehe [LICENSE](LICENSE)) — Nutzung auf
+eigene Verantwortung.
+
 ## Über dieses Projekt
 
 Dieses Projekt ist eine eigenständige, vollständig neu geschriebene Firmware für den Soyosource GTN1000/1200, angeregt durch die Arbeit von

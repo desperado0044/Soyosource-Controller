@@ -61,8 +61,9 @@ static const char HELP_HTML[] PROGMEM = R"rawliteral(
   <h2>Konfiguration: Regelung</h2>
   <div class="row"><span>Max. Leistung (W)</span><span>harte Obergrenze für den Sollwert, wird nie überschritten</span></div>
   <div class="row"><span>Anzahl der Soyos am Bus (1-12)</span><span>Sollwert wird durch diese Zahl geteilt, wenn mehrere Soyo-Geräte parallel am selben RS485-Bus hängen</span></div>
-  <div class="row"><span>Nullpunkt-Offset (W)</span><span>wird zu jedem Messwert addiert, gleicht z.B. eine leicht falsch kalibrierte Messquelle aus</span></div>
+  <div class="row"><span>Zähler-Kalibrierung (W)</span><span>wird zu jedem Rohmesswert addiert, bevor Toleranz/Regelung ihn sehen -- gleicht einen systematisch falsch kalibrierten Stromzähler aus, kein Richtungs-Bias</span></div>
   <div class="row"><span>Fallback-Watt</span><span>Sollwert, wenn die Messwertquelle wiederholt nicht antwortet</span></div>
+  <div class="row"><span>Toleranz Bezug / Toleranz Einspeisung (W)</span><span>je 5-50W, Standard je 10W -- unabhängige Grenzen pro Richtung, solange der Messwert sie nicht erreicht wird nicht nachgeregelt. Für striktere Nulleinspeisung "Toleranz Einspeisung" enger als "Toleranz Bezug" setzen, sonst beide gleich</span></div>
   <div class="row"><span>Poll-Intervall (ms)</span><span>wie oft Shelly/JSON abgefragt werden (400-2000ms)</span></div>
   <div class="row"><span>RS485-Sendeintervall (ms)</span><span>wie oft ein neuer Sollwert an den Soyo gesendet wird (1000-3000ms, Standard 1100ms); zu häufige oder zu seltene Updates können den Soyo unvorhersehbar reagieren lassen, siehe README</span></div>
   <p class="hint">Änderungen hier wirken sofort, ohne Neustart.</p>

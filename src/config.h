@@ -59,14 +59,30 @@ struct Config {
     uint8_t  soyo_count;     // Anzahl parallel angeschlossener Soyo-Geräte (1-12);
                              // der Messwert wird durch diese Zahl geteilt, bevor er
                              // auf den Sollwert aufaddiert wird (siehe main.cpp)
-    int16_t  offset;         // wird zu jedem Messwert addiert, um z.B. einen leicht
-                             // falsch kalibrierten Stromzähler auszugleichen
+    int16_t  calibration_offset_w; // wird zu jedem Rohmesswert addiert, BEVOR die
+                             // Toleranzbänder/Regelung ihn sehen -- gleicht einen
+                             // systematisch falsch kalibrierten Stromzähler aus
+                             // (z.B. zeigt er immer 5W zu viel an). Kein
+                             // Richtungs-Bias wie tolerance_import_w/export_w
+                             // (die verändern nur die Totzonen-Breite, nicht den
+                             // tatsächlichen Referenzpunkt) -- unabhängige,
+                             // orthogonale Einstellung.
     uint16_t fallback_watt;  // Sollwert, wenn die Messwertquelle wiederholt ausfällt
     uint16_t rs485_send_interval_ms; // Wie oft ein neuer Sollwert an den Soyo gesendet
-                             // wird, 1000-3000ms, Standard 2000ms. Ein Referenzcontroller
+                             // wird, 1000-3000ms, Standard 1100ms. Ein Referenzcontroller
                              // (BavarianSuperGuy/KlausLi) mit identischer Hardware läuft
-                             // empirisch bestätigt stabil bei ~2000ms -- dieser Bereich
-                             // eignet sich für eigene Testreihen.
+                             // empirisch bestätigt stabil in diesem Bereich -- eignet sich
+                             // für eigene Testreihen.
+    uint16_t tolerance_import_w; // Toleranz Richtung Bezug (5-50W, Standard 10W):
+                             // solange g_netzwert = tolerance_import_w bleibt, wird
+                             // der Sollwert nicht nachgeführt. Unabhängig von
+                             // tolerance_export_w einstellbar -- wer z.B. möglichst
+                             // strikte Nulleinspeisung will, setzt export eng und
+                             // import weiter; wer wie bei uns beide Richtungen
+                             // gleich behandeln will, setzt beide gleich.
+    uint16_t tolerance_export_w; // Toleranz Richtung Einspeisung (5-50W, Standard
+                             // 10W), spiegelbildlich zu tolerance_import_w -- siehe
+                             // main.cpp für die genaue Verwendung beider Werte.
 
     // Nachtmodus: begrenzt die maximale Leistung in einem Zeitfenster, z.B. um
     // nachts leiser/schonender zu fahren

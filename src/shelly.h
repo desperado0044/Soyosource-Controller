@@ -2,7 +2,7 @@
 
 #include <Arduino.h>
 
-extern float         g_netzwert;              // letzter Messwert in Watt, inkl. offset
+extern float         g_netzwert;              // letzter Messwert in Watt, inkl. calibration_offset_w
 extern unsigned long g_lastMeasurementMillis;
 
 void shellyBegin();

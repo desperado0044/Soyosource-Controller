@@ -115,8 +115,15 @@ static void runControlLoop() {
         // nicht verarbeitet wurde -- jetzt (und nur jetzt) einmalig nachführen.
         lastProcessedMeasurementMillis = g_lastMeasurementMillis;
 
+        // Zwei unabhängige Toleranzgrenzen (config.tolerance_import_w/
+        // tolerance_export_w, einstellbar im Webinterface unter "Regelung"):
+        // korrigiert erst, wenn der Messwert in die jeweilige Richtung die
+        // dafür geltende Grenze erreicht/überschreitet. Standardmäßig beide
+        // gleich (symmetrisch), aber unabhängig verstellbar -- wer z.B.
+        // striktere Nulleinspeisung will, setzt tolerance_export_w enger als
+        // tolerance_import_w.
         float netz = g_netzwert;
-        if (netz <= -20.0f || netz >= 5.0f) {
+        if (netz >= (float)config.tolerance_import_w || netz <= -(float)config.tolerance_export_w) {
             target = g_demand + (int32_t)(netz / config.soyo_count);
         } else {
             target = g_demand; // Toleranzband: Sollwert unverändert

@@ -239,17 +239,33 @@ code{background:var(--bg);border:1px solid var(--border);border-radius:4px;paddi
     <input type="number" id="max_power">
     <label>Anzahl der Soyos am Bus (1-12)</label>
     <input type="number" id="soyo_count" min="1" max="12">
-    <label>Nullpunkt-Offset (W)</label>
-    <input type="number" id="offset">
+    <label>Zähler-Kalibrierung (W)</label>
+    <input type="number" id="calibration_offset_w">
+    <div class="hint">Wird zu jedem Rohmesswert addiert, bevor Toleranz/Regelung
+    ihn sehen -- gleicht einen systematisch falsch kalibrierten Stromzähler aus
+    (z.B. zeigt er immer 5W zu viel Bezug an). Kein Richtungs-Bias, nur
+    Sensorkorrektur.</div>
     <label>Fallback-Watt</label>
     <input type="number" id="fallback_watt">
+    <label>Toleranz Bezug (W)</label>
+    <input type="number" id="tolerance_import_w" min="5" max="50">
+    <label>Toleranz Einspeisung (W)</label>
+    <input type="number" id="tolerance_export_w" min="5" max="50">
+    <div class="hint">Je 5-50W, Standard je 10W. Solange der Messwert nicht
+    mindestens in die jeweilige Richtung diese Grenze erreicht, wird nicht
+    nachgeregelt -- verhindert, dass reines Messrauschen bei jedem Zyklus eine
+    Korrektur auslöst. Unabhängig voneinander einstellbar: wer möglichst
+    strikte Nulleinspeisung will, setzt "Toleranz Einspeisung" eng und
+    "Toleranz Bezug" weiter; wer beide Richtungen gleich behandeln will
+    (z.B. bei angemeldeter, unkritischer minimaler Einspeisung), setzt beide
+    gleich.</div>
     <label>Poll-Intervall Shelly/JSON (ms)</label>
     <input type="number" id="poll_interval_ms" min="400" max="2000" step="50">
     <div class="hint">400-2000ms. Kleinere Werte reagieren schneller, blockieren
     den ESP aber länger pro Abfrage (Webinterface kann dabei träge wirken).</div>
     <label>RS485-Sendeintervall (ms)</label>
     <input type="number" id="rs485_send_interval_ms" min="1000" max="3000" step="100">
-    <div class="hint">1000-3000ms, Standard 2000ms. Wie oft ein neuer Sollwert an
+    <div class="hint">1000-3000ms, Standard 1100ms. Wie oft ein neuer Sollwert an
     den Soyo gesendet wird. Ein Referenzcontroller mit identischer Hardware
     läuft empirisch bestätigt stabil bei ~2000ms -- dieser Bereich eignet sich
     zum eigenen Testen, ohne den vom Hersteller nicht dokumentierten sicheren
@@ -452,8 +468,10 @@ function loadConfigForm(){
 
     document.getElementById('max_power').value=c.max_power;
     document.getElementById('soyo_count').value=c.soyo_count;
-    document.getElementById('offset').value=c.offset;
+    document.getElementById('calibration_offset_w').value=c.calibration_offset_w;
     document.getElementById('fallback_watt').value=c.fallback_watt;
+    document.getElementById('tolerance_import_w').value=c.tolerance_import_w;
+    document.getElementById('tolerance_export_w').value=c.tolerance_export_w;
     document.getElementById('poll_interval_ms').value=c.poll_interval_ms;
     document.getElementById('rs485_send_interval_ms').value=c.rs485_send_interval_ms;
 
@@ -512,10 +530,12 @@ const SECTION_BUILDERS = {
   regelung: () => ({
     max_power: parseInt(document.getElementById('max_power').value)||1200,
     soyo_count: parseInt(document.getElementById('soyo_count').value)||1,
-    offset: parseInt(document.getElementById('offset').value)||0,
+    calibration_offset_w: parseInt(document.getElementById('calibration_offset_w').value)||0,
     fallback_watt: parseInt(document.getElementById('fallback_watt').value)||0,
-    poll_interval_ms: parseInt(document.getElementById('poll_interval_ms').value)||1000,
-    rs485_send_interval_ms: parseInt(document.getElementById('rs485_send_interval_ms').value)||2000
+    tolerance_import_w: parseInt(document.getElementById('tolerance_import_w').value)||10,
+    tolerance_export_w: parseInt(document.getElementById('tolerance_export_w').value)||10,
+    poll_interval_ms: parseInt(document.getElementById('poll_interval_ms').value)||500,
+    rs485_send_interval_ms: parseInt(document.getElementById('rs485_send_interval_ms').value)||1100
   }),
   nacht: () => {
     const ns=timeParts('night_start'), ne=timeParts('night_end');

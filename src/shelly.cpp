@@ -145,7 +145,7 @@ static bool parseResponseForMode(uint8_t mode, JsonDocument &doc, float &outWatt
 // beobachtete Sprünge) -- ein zusätzlicher Glättungsfilter würde von diesem
 // bestätigten Referenzverhalten abweichen, nicht näher daran sein.
 void applyMeasurement(float rawWatt) {
-    g_netzwert = rawWatt + config.offset;
+    g_netzwert = rawWatt + config.calibration_offset_w;
     g_lastMeasurementMillis = millis();
 }
 

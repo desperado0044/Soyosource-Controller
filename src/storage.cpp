@@ -33,9 +33,11 @@ void configSetDefaults(Config &c) {
 
     c.max_power = 900;
     c.soyo_count = 1;
-    c.offset = 0;
+    c.calibration_offset_w = 0;
     c.fallback_watt = 0;
     c.rs485_send_interval_ms = 1100;
+    c.tolerance_import_w = 10;
+    c.tolerance_export_w = 10;
 
     c.night_mode_enabled = false;
     c.night_start_h = 22;
@@ -82,9 +84,11 @@ static void configToDoc(const Config &c, JsonDocument &doc) {
 
     doc["max_power"] = c.max_power;
     doc["soyo_count"] = c.soyo_count;
-    doc["offset"] = c.offset;
+    doc["calibration_offset_w"] = c.calibration_offset_w;
     doc["fallback_watt"] = c.fallback_watt;
     doc["rs485_send_interval_ms"] = c.rs485_send_interval_ms;
+    doc["tolerance_import_w"] = c.tolerance_import_w;
+    doc["tolerance_export_w"] = c.tolerance_export_w;
 
     doc["night_mode_enabled"] = c.night_mode_enabled;
     doc["night_start_h"] = c.night_start_h;
@@ -152,9 +156,11 @@ static void docToConfig(JsonDocument &doc, Config &c) {
 
     if (!doc["max_power"].isNull()) c.max_power = doc["max_power"];
     if (!doc["soyo_count"].isNull()) c.soyo_count = doc["soyo_count"];
-    if (!doc["offset"].isNull()) c.offset = doc["offset"];
+    if (!doc["calibration_offset_w"].isNull()) c.calibration_offset_w = doc["calibration_offset_w"];
     if (!doc["fallback_watt"].isNull()) c.fallback_watt = doc["fallback_watt"];
     if (!doc["rs485_send_interval_ms"].isNull()) c.rs485_send_interval_ms = doc["rs485_send_interval_ms"];
+    if (!doc["tolerance_import_w"].isNull()) c.tolerance_import_w = doc["tolerance_import_w"];
+    if (!doc["tolerance_export_w"].isNull()) c.tolerance_export_w = doc["tolerance_export_w"];
 
     if (!doc["night_mode_enabled"].isNull()) c.night_mode_enabled = doc["night_mode_enabled"];
     if (!doc["night_start_h"].isNull()) c.night_start_h = doc["night_start_h"];
@@ -178,14 +184,25 @@ static void docToConfig(JsonDocument &doc, Config &c) {
     if (c.poll_interval_ms > 2000) c.poll_interval_ms = 2000;
 
     // 1000-3000ms: Bei einem BavarianSuperGuy/KlausLi-Referenzcontroller mit
-    // identischer Hardware läuft der reale Sende-/Entscheidungszyklus stabil
-    // bei ~2000ms (empirisch per Live-Messung bestätigt, siehe main.cpp-
-    // Kommentar) -- das ist auch der Default hier.
-    // 1000-3000ms als Testbereich, um das in kontrollierten Testreihen selbst
-    // zu verifizieren, ohne in einen Bereich zu geraten, der laut Community-
-    // Dokumentation den Wechselrichter zum Stoppen bringen kann.
+    // identischer Hardware läuft der reale Sende-/Entscheidungszyklus empirisch
+    // bestätigt stabil in diesem Bereich (siehe main.cpp-Kommentar) -- 1100ms
+    // ist der hier verwendete Default. 1000-3000ms als Testbereich, um das in
+    // kontrollierten Testreihen selbst zu verifizieren, ohne in einen Bereich
+    // zu geraten, der laut Community-Dokumentation den Wechselrichter zum
+    // Stoppen bringen kann.
     if (c.rs485_send_interval_ms < 1000) c.rs485_send_interval_ms = 1000;
     if (c.rs485_send_interval_ms > 3000) c.rs485_send_interval_ms = 3000;
+
+    // 5-50W je Richtung: darunter würde reines Messrauschen (siehe main.cpp)
+    // fast jeden Zyklus eine Korrektur auslösen, darüber reagiert die Regelung
+    // auf echte kleine Lastwechsel spürbar zu träge. 10W als Default (beide
+    // Richtungen gleich) liegt im Bereich der beobachteten Grundrauschen-
+    // Streuung typischer Stromzähler -- wer strikte Nulleinspeisung will,
+    // kann tolerance_export_w unabhängig enger setzen als tolerance_import_w.
+    if (c.tolerance_import_w < 5) c.tolerance_import_w = 5;
+    if (c.tolerance_import_w > 50) c.tolerance_import_w = 50;
+    if (c.tolerance_export_w < 5) c.tolerance_export_w = 5;
+    if (c.tolerance_export_w > 50) c.tolerance_export_w = 50;
 }
 
 // Muss als Erstes aufgerufen werden, bevor irgendetwas anderes auf LittleFS

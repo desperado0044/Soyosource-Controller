@@ -20,7 +20,10 @@ Eigenschaften dieser Firmware:
 
 - **Vollständig quelloffen**: Jede Zeile Code einsehbar, anpassbar, verbesserbar.
 
-- **Non-blocking HTTP**: Shelly-Polling blockiert nicht den WLAN-Stack.
+- **Non-blocking HTTP**: Shelly-/JSON-Polling läuft über `asyncHTTPrequest`
+  (auf `ESPAsyncTCP`), blockiert `loop()` also nicht mehr wie ein klassischer
+  `HTTPClient`-Aufruf — Webserver und RS485-Senden laufen währenddessen
+  ungestört weiter.
 
 - **Fallback-Logik**: Bei Shelly-Ausfall konfigurierbarer Fallback-Watt
   mit definiertem Verhalten und LED-Anzeige.
@@ -183,7 +186,9 @@ Die letzten 20 Zeilen sind zusätzlich über `GET /log` als JSON abrufbar.
 
 `http://soyo.local/update`, abgesichert mit dem in der Konfiguration gesetzten
 OTA-Passwort (Feld "OTA-Passwort", Nutzername leer). Während des Uploads wird
-Notaus gesetzt und RS485 pausiert.
+Notaus gesetzt, RS485 pausiert und kein neuer Shelly-/JSON-Poll mehr gestartet
+(`g_otaActive`, siehe ota.cpp/shelly.cpp) — der ESP8266 braucht seinen Speicher
+und seine Rechenzeit dann fürs Flash-Schreiben.
 
 ## Für Einsteiger: wiederkehrende Code-Muster
 
@@ -224,6 +229,17 @@ Wer sie einmal verstanden hat, kann den restlichen Kommentaren im Code leichter 
   schiebt das erste Byte um 8 Bit nach links (macht daraus quasi die "Zehnerstelle"),
   `|` fügt das zweite Byte als "Einerstelle" dazu. Beispiel: Bytes `0x01, 0x2C`
   ergeben `0x012C` = 300.
+- **Warum `shellyLoop()` `request.readyState()` pollt statt einen
+  `onReadyStateChange`-Callback zu nutzen** (asyncHTTPrequest-Bibliothek,
+  siehe shelly.cpp): Async-TCP-Callbacks auf dem ESP8266 laufen auf einem
+  deutlich kleineren Stack als der normale `loop()`. Arbeit, die viel Stack
+  braucht (allen voran `deserializeJson()` mit seinem rekursiven Abstieg durch
+  das JSON), kann dort einen Stack-Overflow und damit einen harten Absturz/
+  Reset auslösen -- unabhängig vom eigentlich freien Heap. Deshalb wird hier
+  bewusst KEIN `onReadyStateChange`-Callback registriert; `shellyLoop()`
+  fragt `readyState()` stattdessen bei jedem normalen Schleifendurchlauf ab
+  und wertet die Antwort (inkl. `deserializeJson()`) erst dort aus -- auf dem
+  normalen, ausreichend großen `loop()`-Stack.
 
 ## Lizenz
 

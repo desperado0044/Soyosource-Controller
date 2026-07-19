@@ -21,7 +21,7 @@
 // Zeitgrenze hier bliebe RS485 dann für immer pausiert (Notaus aktiv, kein
 // einziges Frame mehr raus, keine RS485-Anzeige mehr am Wechselrichter), bis
 // irgendwer manuell neu startet.
-static bool          otaActive = false;
+bool                 g_otaActive = false;
 static unsigned long otaStartMillis = 0;
 static const unsigned long OTA_TIMEOUT_MS = 120000; // 2 Minuten
 
@@ -36,7 +36,7 @@ static void onOTAStart() {
     g_notaus = true;
     rs485Pause(true); // setzt DE/RE bereits auf LOW (Empfang)
     ESP.wdtDisable();
-    otaActive = true;
+    g_otaActive = true;
     otaStartMillis = millis();
     LOG("OTA: Update gestartet");
 }
@@ -45,7 +45,7 @@ static void onOTAStart() {
 // Der ESP8266 startet danach in jedem Fall neu -- bei Erfolg bootet er mit
 // der neuen Firmware, bei Misserfolg einfach wieder mit der alten.
 static void onOTAEnd(bool success) {
-    otaActive = false;
+    g_otaActive = false;
     LOG(success ? "OTA: Update erfolgreich" : "OTA: Update fehlgeschlagen");
     digitalWrite(RS485_DE_RE_PIN, HIGH);
     digitalWrite(RS485_RE_PIN, HIGH);
@@ -69,8 +69,8 @@ void otaLoop() {
     // erfolgreich abgeschlossenen Upload würde die Regelung sonst für immer
     // lahmlegen. Kein Neustart nötig -- einfach den Zustand von vor dem
     // OTA-Start wiederherstellen, als wäre nie einer versucht worden.
-    if (otaActive && millis() - otaStartMillis > OTA_TIMEOUT_MS) {
-        otaActive = false;
+    if (g_otaActive && millis() - otaStartMillis > OTA_TIMEOUT_MS) {
+        g_otaActive = false;
         LOG("OTA: Timeout -- kein Upload angekommen, Regelung wird wieder freigegeben");
         g_notaus = false;
         rs485Pause(false);

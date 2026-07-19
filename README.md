@@ -48,6 +48,12 @@ Eigenschaften dieser Firmware:
 
 - **Telnet-Logging**: Echtzeit-Diagnose ohne seriellen Adapter (Port 23).
 
+- **Optionales Display**: SSD1306-OLED (I²C), drei automatisch wechselnde
+  Screens (Config-Portal während der Ersteinrichtung, kurzer Boot-Splash,
+  dauerhafter Betriebsscreen mit Netz-/Soyo-Leistung, WLAN-Status und
+  aktivem Modus) — live-Status ohne Handy/Laptop (siehe Abschnitt "Display"
+  unten).
+
 - **HA Auto-Discovery**: Automatische Integration in Home Assistant per MQTT.
 
 - **Nachtmodus**: Leistungsbegrenzung per Uhrzeit (NTP-basiert).

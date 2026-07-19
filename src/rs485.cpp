@@ -12,14 +12,6 @@ static int32_t targetDemand = 0;
 static int32_t lastSentDemand = -1; // erzwingt den ersten Sendevorgang
 static bool    paused = false;
 
-static unsigned long lastSentMillis = 0;
-// Sollwert auch ohne Änderung spätestens in diesem Abstand erneut senden
-// (siehe applyDemand): Ohne diesen Keepalive würde ein einzelnes, auf dem Bus
-// verlorenes Frame (Kollision, Störung) dauerhaft unbemerkt bleiben, sobald
-// sich der Sollwert danach eine Weile nicht mehr ändert -- wir glauben dann,
-// der Soyo hätte den neuen Wert, tatsächlich steht er noch auf dem alten.
-static const unsigned long DEMAND_KEEPALIVE_MS = 15000;
-
 // Wie oft ein neuer Sollwert gesendet wird -- konfigurierbar über
 // config.rs485_send_interval_ms (Webinterface: Regelung), siehe Kommentar
 // dort für den Hintergrund (Soyo reagiert bei zu häufigen Updates
@@ -176,31 +168,26 @@ static void parseStatusResponse(const uint8_t *frame) {
     LOG(("RS485: Status-Response empfangen (Status=" + String(g_soyoStatus.operationStatus) + ")").c_str());
 }
 
-// Rampe (100W-Schritte ab 150W Abweichung) testweise wieder entfernt, um den
-// Effekt des rs485_send_interval_ms allein beurteilen zu können (siehe
-// README/Commit-Historie) -- direkte Übernahme des Zielsollwerts, keine
-// Glättung. Bei Bedarf wieder einbauen, falls das Sendeintervall allein nicht
-// ausreicht.
+// Sendet den Sollwert bei JEDEM Aufruf neu, unabhängig davon, ob er sich
+// seit dem letzten Mal geändert hat -- keine "nur bei Änderung senden"-
+// Optimierung mehr. Grund: genau das Ausbleiben von RS485-Frames bei länger
+// unverändertem Sollwert hat nachweislich (siehe main.cpp-Kommentar zur
+// Toleranzband-Formel sowie ein 2 Jahre altes, selbst erlebtes Bug-Ticket zu
+// BavarianSuperGuys Original-Firmware) dazu geführt, dass der Soyo nach einer
+// Weile Funkstille die Einspeisung von sich aus abschaltet -- worauf der
+// nächste, dann meist große Regeleingriff zu genau dem Sägezahn-Schwingen
+// führte, das wir hier über weite Teile des Tages gejagt haben. Passt auch
+// zu BavarianSuperGuys späterem, per README dokumentiertem Fix ("Der esp
+// ansich schickt schon jede Sekunde den zuletzt angenommenen Wert").
 static void applyDemand() {
     if (g_notaus) {
         targetDemand = 0;
     }
     g_demand = targetDemand;
 
-    // Nur senden, wenn sich wirklich etwas geändert hat -- spart unnötigen
-    // Bus-Traffic, falls sich der Sollwert gerade nicht (oder nur um Rundungs-
-    // Rauschen von <1W) bewegt. Spätestens alle DEMAND_KEEPALIVE_MS aber auch
-    // ohne Änderung erneut senden (siehe Kommentar dort).
-    bool changed = lastSentDemand < 0 || abs(g_demand - lastSentDemand) > 1;
-    bool keepaliveDue = millis() - lastSentMillis >= DEMAND_KEEPALIVE_MS;
-
-    if (changed || keepaliveDue) {
-        sendDemandFrame((uint16_t)g_demand);
-        LOG(("RS485: Demand " + String(lastSentDemand) + "W -> " + String(g_demand) + "W" +
-             (changed ? "" : " (Keepalive)")).c_str());
-        lastSentDemand = g_demand;
-        lastSentMillis = millis();
-    }
+    sendDemandFrame((uint16_t)g_demand);
+    LOG(("RS485: Demand " + String(lastSentDemand) + "W -> " + String(g_demand) + "W").c_str());
+    lastSentDemand = g_demand;
 }
 
 void rs485Begin() {
@@ -246,19 +233,19 @@ void rs485Loop() {
 
     unsigned long now = millis();
 
-    // Status-Request hat Vorrang vor dem normalen Sollwert-Senden, da der Bus
-    // Half-Duplex ist (siehe rs485.h) und pro Durchlauf nur ein Frame rausgeht.
-    // Kommt gerade ein Status-Request dran, überspringen wir in diesem
-    // Durchlauf das Demand-Senden (return) und holen es beim nächsten Mal nach.
-    if (now - lastStatusRequestMillis >= STATUS_REQUEST_INTERVAL_MS) {
-        lastStatusRequestMillis = now;
-        sendStatusRequestFrame();
-        return;
-    }
-
+    // Sollwert-Senden hat klar Vorrang vor dem Status-Request, da der Bus
+    // Half-Duplex ist (siehe rs485.h) und pro Durchlauf nur ein Frame
+    // rausgeht: zuverlässiges, regelmäßiges Senden ist entscheidend dafür,
+    // dass der Soyo nicht wegen Funkstille die Einspeisung abschaltet (siehe
+    // Kommentar bei applyDemand) -- der Status-Request liefert dagegen nur
+    // Diagnosewerte fürs Webinterface und darf ohne Weiteres eine Runde
+    // aussetzen, wenn er mit einem fälligen Sendezyklus kollidiert.
     if (now - lastSendMillis >= config.rs485_send_interval_ms) {
         lastSendMillis = now;
         applyDemand();
+    } else if (now - lastStatusRequestMillis >= STATUS_REQUEST_INTERVAL_MS) {
+        lastStatusRequestMillis = now;
+        sendStatusRequestFrame();
     }
 }
 

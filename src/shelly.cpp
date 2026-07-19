@@ -35,7 +35,7 @@ static uint8_t successCount = 0;
 static const uint8_t FALLBACK_TRIGGER_FAILS = 3;
 static const uint8_t FALLBACK_CLEAR_SUCCESSES = 3;
 
-static const uint16_t HTTP_TIMEOUT_MS = 1500;
+static const uint16_t HTTP_TIMEOUT_MS = 1000;
 
 // Bei 500ms Poll-Intervall fällt der TCP-Verbindungsaufbau (SYN/SYN-ACK/ACK)
 // pro Abfrage spürbar ins Gewicht -- er blockiert den ESP8266 zusätzlich zur

@@ -23,19 +23,20 @@ void configSetDefaults(Config &c) {
     strlcpy(c.mqtt_sub_topic, "Soyosource/L1L2L3", sizeof(c.mqtt_sub_topic));
     strlcpy(c.mqtt_pub_topic, "Soyosource/status", sizeof(c.mqtt_pub_topic));
 
-    c.mode = MODE_STATIC;
-    c.static_watt = 0;
+    c.mode = MODE_SHELLY_GEN1;
+    c.static_watt = 50;
 
+    strlcpy(c.shelly_ip, "192.168.0.245", sizeof(c.shelly_ip));
     c.shelly_l1 = true;
     c.shelly_l2 = true;
     c.shelly_l3 = true;
-    c.poll_interval_ms = 1000;
+    c.poll_interval_ms = 500;
 
-    c.max_power = 1200;
-    c.soyo_count = 1;
+    c.max_power = 900;
+    c.soyo_count = 3;
     c.offset = 0;
     c.fallback_watt = 0;
-    c.rs485_send_interval_ms = 2000;
+    c.rs485_send_interval_ms = 1100;
 
     c.night_mode_enabled = false;
     c.night_start_h = 22;

@@ -26,14 +26,13 @@ void configSetDefaults(Config &c) {
     c.mode = MODE_SHELLY_GEN1;
     c.static_watt = 50;
 
-    strlcpy(c.shelly_ip, "192.168.0.245", sizeof(c.shelly_ip));
     c.shelly_l1 = true;
     c.shelly_l2 = true;
     c.shelly_l3 = true;
     c.poll_interval_ms = 500;
 
     c.max_power = 900;
-    c.soyo_count = 3;
+    c.soyo_count = 1;
     c.offset = 0;
     c.fallback_watt = 0;
     c.rs485_send_interval_ms = 1100;

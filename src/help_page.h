@@ -64,7 +64,7 @@ static const char HELP_HTML[] PROGMEM = R"rawliteral(
   <div class="row"><span>Nullpunkt-Offset (W)</span><span>wird zu jedem Messwert addiert, gleicht z.B. eine leicht falsch kalibrierte Messquelle aus</span></div>
   <div class="row"><span>Fallback-Watt</span><span>Sollwert, wenn die Messwertquelle wiederholt nicht antwortet</span></div>
   <div class="row"><span>Poll-Intervall (ms)</span><span>wie oft Shelly/JSON abgefragt werden (400-2000ms)</span></div>
-  <div class="row"><span>RS485-Sendeintervall (ms)</span><span>wie oft ein neuer Sollwert an den Soyo gesendet wird (1000-3000ms, Standard 2000ms); zu häufige oder zu seltene Updates können den Soyo unvorhersehbar reagieren lassen, siehe README</span></div>
+  <div class="row"><span>RS485-Sendeintervall (ms)</span><span>wie oft ein neuer Sollwert an den Soyo gesendet wird (1000-3000ms, Standard 1100ms); zu häufige oder zu seltene Updates können den Soyo unvorhersehbar reagieren lassen, siehe README</span></div>
   <p class="hint">Änderungen hier wirken sofort, ohne Neustart.</p>
 </div>
 
@@ -102,6 +102,15 @@ static const char HELP_HTML[] PROGMEM = R"rawliteral(
   <div class="row"><span><code>GET /log</code></span><span>letzte 20 Log-Zeilen als JSON</span></div>
   <div class="row"><span><code>GET /update</code></span><span>Firmware-Update-Seite (ElegantOTA)</span></div>
   <p class="hint">Live-Diagnose zusätzlich per Telnet: <code>telnet soyo.local</code> (Port 23).</p>
+</div>
+
+<div class="card">
+  <h2>Display (optional)</h2>
+  <p>Ein angeschlossenes SSD1306-OLED zeigt Live-Betrieb ohne Handy/Laptop:
+  im Setup-Modus SSID/IP des Config-Portals, danach kurz Firmware-Version
+  und die zugewiesene IP, dauerhaft danach Netz-/Soyo-Leistung, WLAN-Status
+  und aktiver Modus. Rein informativ, keine eigenen Einstellungen im
+  Webinterface — Details siehe README.</p>
 </div>
 
 <div class="card">

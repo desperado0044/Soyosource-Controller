@@ -64,10 +64,17 @@ Eigenschaften dieser Firmware:
 | RS485 RE (optional, siehe unten) | GPIO12 (D6) | RE |
 | Flash-Button     | GPIO0 (Werksreset: 5s beim Boot gedrückt halten) | — |
 | LED (onboard)    | GPIO2, active LOW | — |
+| Display SDA      | GPIO4 (D2) | SDA |
+| Display SCL      | GPIO5 (D1) | SCL |
 
 Modul-Pins `VCC`/`GND`: 3.3V/GND vom ESP. Modul-Pins `A`/`B`: RS485-Bus zum
 Soyosource-Wechselrichter (nicht mit dem ESP verbunden, nur mit dessen RS485-
 Anschluss).
+
+**Achtung Pin-Beschriftung:** Die GPIO-Nummer im Code (`4`/`5`) und das
+"D"-Label auf dem NodeMCU-Silkscreen sind nicht dasselbe — GPIO4 ist auf der
+Platine mit "D2" beschriftet, GPIO5 mit "D1". Die Zuordnung ist historisch
+gewachsen, nicht durchnummeriert (D1=GPIO5, D2=GPIO4, D3=GPIO0, D4=GPIO2, ...).
 
 **DE/RE-Verkabelung, zwei Varianten:**
 1. **DE und RE auf dem Modul verlötet/gebrückt** (klassisch): nur eine Leitung
@@ -80,6 +87,30 @@ Anschluss).
 
 RS485-Modul TX/RX (also DI/RO) werden an den Hardware-UART (Serial) angeschlossen,
 dieser wird ausschließlich für RS485 verwendet — kein Debug-Output über Serial.
+
+## Display (optional)
+
+Ein SSD1306-OLED (128×64, I²C) an den oben genannten Pins zeigt den
+Live-Betrieb an, ohne dass ein Handy/Laptop nötig ist. Läuft mit 400kHz
+I²C-Takt und aktualisiert sich im selben Rhythmus wie `poll_interval_ms`
+(siehe [display.cpp](src/display.cpp)) — bewusst kein schnelleres Redraw,
+da jede I²C-Übertragung `loop()` kurz blockiert und unnötig häufige Updates
+so nur RS485/Regelung stören würden, ohne sichtbaren Zusatznutzen.
+
+Drei Screens, automatischer Wechsel:
+
+1. **Config-Portal**: solange das Gerät im AP-Setup-Modus wartet (siehe
+   "Ersteinrichtung" unten), zeigt das Display dauerhaft SSID und IP des
+   Setup-Access-Points — kein Zeit-basierter Wechsel, bleibt bis die
+   WLAN-Zugangsdaten gespeichert wurden.
+2. **Splash**: nach Verlassen des Config-Portals kurz das Wordmark samt
+   Firmware-Version, dann — sobald das WLAN verbunden ist — für 5 Sekunden
+   die zugewiesene IP-Adresse.
+3. **Betrieb** (dauerhaft danach): WLAN-Status und aktiver Modus
+   (AUTO/NIGHT/FALLBACK/NOTAUS) in der Statuszeile, darunter groß die
+   Netz-Leistung mit Richtungspfeil (Bezug/Einspeisung) sowie die
+   Soyo-Gesamtleistung (`g_demand * soyo_count`, siehe "Betriebsmodi" unten
+   zu `soyo_count`).
 
 ## Build & Flash
 
@@ -147,9 +178,10 @@ formatiert, Gerät startet neu und geht wieder in den AP-Setup-Modus.
 - **HttpInterface**: externe Quelle pusht Messwert per `GET /L1L2L3Auto?Value=<watt>`.
 - **MqttSub**: Messwert kommt per MQTT-Subscribe auf `mqtt_sub_topic`.
 - **Shelly Gen1 / Gen2 Pro**: Firmware pollt den Shelly per HTTP, Intervall
-  einstellbar (`poll_interval_ms`, 400-2000ms, Standard 1000ms; Feld "Poll-
+  einstellbar (`poll_interval_ms`, 400-2000ms, Standard 500ms; Feld "Poll-
   Intervall Shelly/JSON" im Webinterface). Der RS485-Sendezyklus läuft davon
-  unabhängig weiterhin alle 500ms. Phasen L1/L2/L3 frei kombinierbar über drei
+  unabhängig über ein eigenes Intervall (`rs485_send_interval_ms`,
+  1000-3000ms, Standard 1100ms). Phasen L1/L2/L3 frei kombinierbar über drei
   unabhängige Checkboxen im Webinterface (Standard: alle drei angehakt =
   Gesamtleistung; genauso z.B. nur L1+L2 möglich) — bei beiden Generationen
   gleich, Gen1 liefert die Einzelphasen über das `emeters`-Array seiner
@@ -206,7 +238,20 @@ Die letzten 20 Zeilen sind zusätzlich über `GET /log` als JSON abrufbar.
 OTA-Passwort (Feld "OTA-Passwort", Nutzername leer). Während des Uploads wird
 Notaus gesetzt, RS485 pausiert und kein neuer Shelly-/JSON-Poll mehr gestartet
 (`g_otaActive`, siehe ota.cpp/shelly.cpp) — der ESP8266 braucht seinen Speicher
-und seine Rechenzeit dann fürs Flash-Schreiben.
+und seine Rechenzeit dann fürs Flash-Schreiben. Nach Abschluss des Uploads
+startet das Gerät automatisch neu, unabhängig davon ob der Upload erfolgreich
+war oder nicht (`onOTAEnd()`, siehe ota.cpp) — bei Erfolg bootet die neue
+Firmware, bei Fehlschlag einfach wieder die alte. Kommt trotz gestartetem
+Update-Vorgang nie ein Upload an (z.B. abgebrochene Verbindung), hebt die
+Firmware Notaus/RS485-Pause nach 2 Minuten von selbst wieder auf, ganz ohne
+Neustart (`OTA_TIMEOUT_MS`).
+
+Alternativ direkt per Kommandozeile (z.B. wenn kein USB-Port mehr frei ist):
+
+```
+curl http://soyo.local/ota/start
+curl -F "firmware=@.pio/build/nodemcuv2/firmware.bin" http://soyo.local/ota/upload
+```
 
 ## Für Einsteiger: wiederkehrende Code-Muster
 

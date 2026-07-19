@@ -21,6 +21,7 @@
 #include "mqtt_mgr.h"
 #include "http_server.h"
 #include "ota.h"
+#include "display.h"
 
 // Die einzige Config-Instanz im ganzen Projekt (siehe "extern Config config;"
 // in config.h -- dort wird sie nur bekanntgegeben, hier tatsächlich angelegt).
@@ -193,6 +194,7 @@ void setup() {
     mqttBegin();
     httpServerBegin();
     otaBegin(server);
+    displayBegin();
 
     g_lastMeasurementMillis = millis();
 
@@ -214,6 +216,7 @@ void loop() {
     mqttLoop();
     httpServerLoop();
     otaLoop();
+    displayLoop();
 
     runControlLoop();
     runWatchdog();

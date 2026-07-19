@@ -77,10 +77,10 @@ static void checkFactoryReset() {
 // nachgesteuert, bis sich Verbrauch und Einspeisung ungefähr die Waage halten
 // (dann pendelt g_netzwert nahe 0 und landet im Toleranzband, siehe unten).
 //
-// Diese Formel (inkl. Toleranzband) wurde am 2026-07-18 anhand von Live-
-// Messdaten eines tatsächlich laufenden BavarianSuperGuy/KlausLi-Controllers
-// (identische Hardware: 3 parallele Soyos) verifiziert: über 17 beobachtete
-// Sollwert-Sprünge stimmt "delta = aktueller_Rohmesswert / soyo_count" mit
+// Diese Formel (inkl. Toleranzband) wurde anhand von Live-Messdaten eines
+// tatsächlich laufenden BavarianSuperGuy/KlausLi-Controllers mit identischer
+// Hardware verifiziert: über 17 beobachtete Sollwert-Sprünge stimmt
+// "delta = aktueller_Rohmesswert / soyo_count" mit
 // durchschnittlich <0.5W Abweichung -- ein direkter Rohwert-Bezug, kein
 // gleitender Durchschnitt (der getestet und anhand derselben Daten verworfen
 // wurde: je größer das Mittelungsfenster, desto schlechter die Vorhersage).

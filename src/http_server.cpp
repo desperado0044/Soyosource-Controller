@@ -251,9 +251,9 @@ code{background:var(--bg);border:1px solid var(--border);border-radius:4px;paddi
     <input type="number" id="rs485_send_interval_ms" min="1000" max="3000" step="100">
     <div class="hint">1000-3000ms, Standard 2000ms. Wie oft ein neuer Sollwert an
     den Soyo gesendet wird. Ein Referenzcontroller mit identischer Hardware
-    (3 parallele Soyos) läuft empirisch bestätigt stabil bei ~2000ms -- dieser
-    Bereich eignet sich zum eigenen Testen, ohne den vom Hersteller nicht
-    dokumentierten sicheren Rahmen zu verlassen.</div>
+    läuft empirisch bestätigt stabil bei ~2000ms -- dieser Bereich eignet sich
+    zum eigenen Testen, ohne den vom Hersteller nicht dokumentierten sicheren
+    Rahmen zu verlassen.</div>
     <button type="button" class="btn btn-blue" onclick="saveSection('regelung')">Regelung speichern</button>
     <span class="saved-ok" id="saved-regelung"></span>
   </fieldset>

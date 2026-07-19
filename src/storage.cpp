@@ -179,9 +179,9 @@ static void docToConfig(JsonDocument &doc, Config &c) {
     if (c.poll_interval_ms > 2000) c.poll_interval_ms = 2000;
 
     // 1000-3000ms: Bei einem BavarianSuperGuy/KlausLi-Referenzcontroller mit
-    // identischer Hardware (3 parallele Soyos) läuft der reale Sende-/
-    // Entscheidungszyklus stabil bei ~2000ms (empirisch per Live-Messung
-    // bestätigt, siehe main.cpp-Kommentar) -- das ist auch der Default hier.
+    // identischer Hardware läuft der reale Sende-/Entscheidungszyklus stabil
+    // bei ~2000ms (empirisch per Live-Messung bestätigt, siehe main.cpp-
+    // Kommentar) -- das ist auch der Default hier.
     // 1000-3000ms als Testbereich, um das in kontrollierten Testreihen selbst
     // zu verifizieren, ohne in einen Bereich zu geraten, der laut Community-
     // Dokumentation den Wechselrichter zum Stoppen bringen kann.

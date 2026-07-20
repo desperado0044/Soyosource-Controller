@@ -151,6 +151,12 @@ Drei Tabs, umschaltbar ohne Neuladen der Seite:
   Download/-Upload.
 - **Netzwerkkonfiguration**: WLAN, MQTT.
 
+| Hauptseite | Gerätekonfiguration |
+|---|---|
+| ![Hauptseite](Screenshots/Hauptseite.png) | ![Gerätekonfiguration](Screenshots/Konfiguration1.png) |
+
+![Gerätekonfiguration (Regelung, Nachtmodus, OTA, Config-Sicherung)](Screenshots/Konfiguration2.png)
+
 ## Webinterface: Einzelspeicherung pro Bereich
 
 Es gibt keinen globalen "Alles speichern"-Button mehr. Jeder Konfigurationsblock

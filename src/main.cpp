@@ -169,8 +169,16 @@ static void runWatchdog() {
     }
 
     // Static-Modus liefert nie einen externen Messwert, AP-Modus wartet auf
-    // Erstkonfiguration -- beides wäre sonst ein Reboot-Loop.
-    bool measurementRelevant = (config.mode != MODE_STATIC) && !wifiMgrIsApMode();
+    // Erstkonfiguration -- beides wäre sonst ein Reboot-Loop. Genauso im
+    // Fallback-Zustand (siehe shelly.cpp): g_lastMeasurementMillis wird dort
+    // bewusst NICHT aktualisiert, solange die Messwertquelle weiter ausfällt --
+    // ohne diese Ausnahme würde der ESP alle 60s neu starten, obwohl der
+    // Fallback-Sollwert (Standard 0W) längst sicher und korrekt anliegt. Jeder
+    // einzelne erfolgreiche Poll aktualisiert g_lastMeasurementMillis wieder
+    // (siehe applyMeasurement()), auch während man noch im Fallback steckt --
+    // die Ausnahme hier wird also nicht dauerhaft "scharf" gestellt, sobald
+    // die Quelle zwischenzeitlich mal wieder antwortet.
+    bool measurementRelevant = (config.mode != MODE_STATIC) && !wifiMgrIsApMode() && !g_fallbackActive;
     if (measurementRelevant && now - g_lastMeasurementMillis > MEASUREMENT_STALE_MS) {
         LOG("Watchdog: Kein gültiger Messwert seit >60s, Neustart");
         ESP.restart();

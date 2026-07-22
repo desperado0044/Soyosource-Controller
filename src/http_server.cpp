@@ -118,12 +118,14 @@ code{background:var(--bg);border:1px solid var(--border);border-radius:4px;paddi
       <span class="status-item" id="dotSourceItem"><span class="status-dot" id="dotSource"></span>Messwertquelle</span>
     </span>
   </div>
-  <div class="row"><span>Demand</span><span><b id="demand">-</b> W</span></div>
+  <div class="row"><span>Demand</span><span><b id="demand">-</b> W<span id="demandTotal"></span></span></div>
   <div class="row"><span>Netzwert</span><span><b id="netz">-</b> W</span></div>
   <div class="row"><span>Modus</span><span id="modeText">-</span></div>
   <div class="row"><span>Notaus</span><span id="notausState">-</span></div>
   <div class="row"><span>WLAN RSSI</span><span class="rssi-bars" id="rssiBars"></span></div>
   <div class="row"><span>Laufzeit</span><span id="uptime">-</span></div>
+  <div class="row"><span>Firmware</span><span id="buildTime">-</span></div>
+  <div class="row"><span>Version</span><span id="gitVersion">-</span></div>
   <div class="row"><span>Freier Heap</span><span><span id="heap">-</span> B</span></div>
   <div class="row"><span>Messwert</span><span id="measurementAge">-</span></div>
   <div class="row blink" id="dcRow"><span>DC-Einspeisung</span><span id="dcState">-</span></div>
@@ -345,10 +347,18 @@ function refreshStatus(){
     document.getElementById('dotEsp').classList.add('on');
 
     document.getElementById('demand').textContent=d.demand;
+    // "Demand" ist der Sollwert, der identisch an jeden Soyo am Bus gesendet
+    // wird (siehe rs485.cpp) -- bei mehr als einem Soyo ist die tatsächliche
+    // Gesamteinspeisung also ein Vielfaches davon, nicht der angezeigte Wert
+    // selbst. Nur anzeigen, wenn es überhaupt mehr als einen Soyo gibt, sonst
+    // wäre "(x W gesamt)" nur eine Wiederholung derselben Zahl.
+    document.getElementById('demandTotal').textContent=(d.soyo_count>1)?(' ('+(d.demand*d.soyo_count)+' W gesamt)'):'';
     document.getElementById('netz').textContent=Number(d.netz).toFixed(1);
     document.getElementById('modeText').textContent=MODE_NAMES[d.mode]||d.mode;
     document.getElementById('notausState').textContent=d.notaus?'AKTIV':'inaktiv';
     document.getElementById('uptime').textContent=fmtUptime(d.uptime);
+    document.getElementById('buildTime').textContent=d.build_time;
+    document.getElementById('gitVersion').textContent=d.git_version;
     document.getElementById('heap').textContent=d.heap;
     document.getElementById('measurementAge').textContent='vor '+d.last_measurement_age+'s aktualisiert';
     document.getElementById('rssiBars').innerHTML=rssiBars(d.rssi);
@@ -607,12 +617,22 @@ static void handleHelpContent() {
 static void handleStatus() {
     JsonDocument doc;
     doc["demand"] = g_demand;
+    doc["soyo_count"] = config.soyo_count;
     doc["netz"] = g_netzwert;
     doc["rssi"] = WiFi.RSSI();
     doc["mode"] = config.mode;
     doc["notaus"] = g_notaus;
     doc["fallback"] = g_fallbackActive;
     doc["uptime"] = millis() / 1000;
+    // Compile-Zeitstempel UND Git-Version, beide automatisch (kein manuelles
+    // Pflegen nötig, anders als z.B. DISPLAY_FW_VERSION in display.h, die
+    // manuell hochgezählt werden muss und deshalb leicht veraltet). GIT_VERSION
+    // kommt aus get_git_version.py (siehe platformio.ini, extra_scripts) --
+    // "vX.Y.Z" auf einem sauberen Tag, sonst z.B. "vX.Y.Z-3-gabc1234-dirty".
+    // Nützlich, um nach einem OTA-Update zweifelsfrei zu sehen, ob die neue
+    // Firmware wirklich angekommen ist, statt es aus Nebeneffekten zu schließen.
+    doc["build_time"] = String(__DATE__) + " " + String(__TIME__);
+    doc["git_version"] = GIT_VERSION;
     doc["heap"] = ESP.getFreeHeap();
     doc["ap_mode"] = wifiMgrIsApMode();
     doc["wifi_state"] = (int)wifiMgrGetState();

@@ -71,8 +71,16 @@ static void drawSplashBoot() {
     u8g2.drawStr(16, 26, "SOYO");
     u8g2.drawHLine(16, 30, 60);
 
+    // Build-Uhrzeit (__TIME__) statt einer eigenen, separat gepflegten
+    // Versionsnummer -- die musste vorher von Hand hochgezaehlt werden und
+    // wurde dabei vergessen, sodass hier lange eine veraltete Version stand,
+    // obwohl neue Firmware laengst lief. __TIME__ aktualisiert sich
+    // automatisch bei jedem Build dieser Datei und aendert sich garantiert
+    // bei jedem neuen Upload -- GIT_VERSION (siehe http_server.cpp) waere
+    // hier zu lang fuers 128px-Display (Font 6px/Zeichen) und aendert sich
+    // ausserdem erst bei einem echten Commit, nicht bei jedem Testbuild.
     u8g2.setFont(u8g2_font_6x10_tf);
-    u8g2.drawStr(16, 42, "FW " DISPLAY_FW_VERSION);
+    u8g2.drawStr(16, 42, "FW " __TIME__);
 
     // Ganz simple "laufende Punkte"-Animation: Anzahl Punkte haengt vom
     // aktuellen millis()-Wert ab, kein eigener Animations-Zaehler noetig.

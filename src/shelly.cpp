@@ -235,9 +235,6 @@ void shellyLoop() {
     if (config.mode != MODE_SHELLY_GEN1 && config.mode != MODE_SHELLY_GEN2 && config.mode != MODE_JSON_HTTP) {
         return;
     }
-    if (WiFi.status() != WL_CONNECTED) {
-        return;
-    }
     // Während eines laufenden OTA-Uploads keine neue Anfrage starten -- der
     // ESP8266 braucht seinen Speicher und seine Rechenzeit dann fürs
     // Flash-Schreiben (siehe g_otaActive in ota.cpp).
@@ -264,6 +261,21 @@ void shellyLoop() {
     }
     lastPollMillis = now;
     fetchStartMillis = now;
+
+    // Fehlendes WLAN zaehlt genauso als fehlgeschlagener Poll-Versuch wie ein
+    // HTTP-Fehler unten -- sonst wuerde eine laengere WLAN-Unterbrechung nie
+    // den Fallback-Sollwert (config.fallback_watt, siehe enterFallback())
+    // ausloesen: der Regler wuerde stattdessen unbegrenzt am zuletzt
+    // berechneten Sollwert festhalten (siehe runControlLoop() in main.cpp),
+    // bis nach MEASUREMENT_STALE_MS (60s) der separate Watchdog eingreift und
+    // den ESP komplett neu startet -- sicherheitsrelevant, da der Regler bis
+    // dahin blind auf einem veralteten Sollwert verharrt.
+    if (WiFi.status() != WL_CONNECTED) {
+        LOG("Shelly/JsonHttp: WLAN nicht verbunden, zaehlt als fehlgeschlagener Poll");
+        onFetchDone(false, 0);
+        return;
+    }
+
     inFlightMode = config.mode;
 
     String url = buildUrlForMode(config.mode);

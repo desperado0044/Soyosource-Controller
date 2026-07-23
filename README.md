@@ -33,6 +33,12 @@ Eigenschaften dieser Firmware:
 - **Non-blocking WiFi**: WLAN-Verbindungsaufbau und Reconnect laufen non-blocking
   über eine Zustandsmaschine, ohne den restlichen Betrieb zu blockieren.
 
+- **Fallback-WLAN**: optionales zweites Netz (z.B. Handy-Hotspot), das erst
+  probiert wird, wenn das primäre WLAN eine Weile nicht erreichbar ist.
+  Primäres WLAN bleibt bevorzugt — läuft das Gerät auf dem Fallback, wird
+  im Hintergrund regelmäßig geprüft, ob das primäre Netz wieder da ist, und
+  automatisch zurückgewechselt.
+
 - **Werksreset**: GPIO0 5 Sekunden beim Boot gedrückt halten (siehe Abschnitt
   "Werksreset" unten).
 
@@ -132,6 +138,7 @@ pio run -t uploadfs   # LittleFS-Image (nur nötig falls Dateien in data/ liegen
    Portal öffnet sich auf den meisten Smartphones automatisch.
 2. Im Webinterface unter "Netzwerkkonfiguration" → WLAN die Zugangsdaten setzen,
    "WLAN speichern" klicken → Gerät speichert und startet neu, verbindet sich mit dem WLAN.
+   Optional zusätzlich eine Fallback-SSID/Passwort eintragen (siehe oben).
 3. Danach erreichbar über `http://soyo.local` oder die vom Router vergebene IP.
    Unter "Gerätekonfiguration" → Betriebsmodus den gewünschten Modus einstellen
    und "Betriebsmodus speichern" klicken.
@@ -187,6 +194,10 @@ formatiert, Gerät startet neu und geht wieder in den AP-Setup-Modus.
 ## Betriebsmodi
 
 - **Static**: Ausgang konstant auf `static_watt` (kein externer Messwert nötig).
+  `static_watt` (ebenso `fallback_watt`, `max_power`, `night_max_power`) meint
+  dabei immer die Summe über alle angeschlossenen Soyos (`soyo_count`) — die
+  Firmware teilt den Wert selbst passend durch `soyo_count`, bevor er als
+  Sollwert pro Gerät gesendet wird.
 - **HttpInterface**: externe Quelle pusht Messwert per `GET /L1L2L3Auto?Value=<watt>`.
 - **MqttSub**: Messwert kommt per MQTT-Subscribe auf `mqtt_sub_topic`.
 - **Shelly Gen1 / Gen2 Pro**: Firmware pollt den Shelly per HTTP, Intervall

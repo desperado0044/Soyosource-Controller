@@ -56,6 +56,8 @@ void configSetDefaults(Config &c) {
 static void configToDoc(const Config &c, JsonDocument &doc) {
     doc["wifi_ssid"] = c.wifi_ssid;
     doc["wifi_pass"] = c.wifi_pass;
+    doc["wifi_ssid2"] = c.wifi_ssid2;
+    doc["wifi_pass2"] = c.wifi_pass2;
     doc["wifi_static"] = c.wifi_static;
     doc["wifi_ip"] = c.wifi_ip;
     doc["wifi_gw"] = c.wifi_gw;
@@ -128,6 +130,8 @@ static void configToDoc(const Config &c, JsonDocument &doc) {
 static void docToConfig(JsonDocument &doc, Config &c) {
     if (!doc["wifi_ssid"].isNull()) strlcpy(c.wifi_ssid, doc["wifi_ssid"], sizeof(c.wifi_ssid));
     if (!doc["wifi_pass"].isNull()) strlcpy(c.wifi_pass, doc["wifi_pass"], sizeof(c.wifi_pass));
+    if (!doc["wifi_ssid2"].isNull()) strlcpy(c.wifi_ssid2, doc["wifi_ssid2"], sizeof(c.wifi_ssid2));
+    if (!doc["wifi_pass2"].isNull()) strlcpy(c.wifi_pass2, doc["wifi_pass2"], sizeof(c.wifi_pass2));
     if (!doc["wifi_static"].isNull()) c.wifi_static = doc["wifi_static"];
     if (!doc["wifi_ip"].isNull()) strlcpy(c.wifi_ip, doc["wifi_ip"], sizeof(c.wifi_ip));
     if (!doc["wifi_gw"].isNull()) strlcpy(c.wifi_gw, doc["wifi_gw"], sizeof(c.wifi_gw));
@@ -281,7 +285,7 @@ String configToJsonString(const Config &c) {
 // und wirken deshalb sofort, ganz ohne Neustart.
 static bool jsonNeedsRestart(JsonDocument &doc) {
     static const char *restartFields[] = {
-        "wifi_ssid", "wifi_pass", "wifi_static", "wifi_ip", "wifi_gw", "wifi_mask", "wifi_11n",
+        "wifi_ssid", "wifi_pass", "wifi_ssid2", "wifi_pass2", "wifi_static", "wifi_ip", "wifi_gw", "wifi_mask", "wifi_11n",
         "mqtt_enabled", "mqtt_broker", "mqtt_port", "mqtt_user", "mqtt_pass",
         "mqtt_sub_topic", "mqtt_pub_topic", "ota_pass"
     };

@@ -160,6 +160,11 @@ code{background:var(--bg);border:1px solid var(--border);border-radius:4px;paddi
     <input type="text" id="wifi_ssid">
     <label>Passwort</label>
     <input type="password" id="wifi_pass">
+    <label>Fallback-SSID (optional)</label>
+    <input type="text" id="wifi_ssid2">
+    <label>Fallback-Passwort</label>
+    <input type="password" id="wifi_pass2">
+    <p class="hint">Wird erst probiert, wenn das primäre WLAN oben eine Weile nicht erreichbar ist (z.B. Handy-Hotspot als Notlösung). Leer lassen = kein Fallback. Läuft das Gerät gerade auf dem Fallback, wird alle paar Minuten im Hintergrund geprüft, ob das primäre WLAN wieder da ist, und automatisch zurückgewechselt. Die feste IP unten gilt nur für das primäre WLAN, das Fallback-Netz bekommt immer eine Adresse per DHCP.</p>
     <div class="checkbox-row"><input type="checkbox" id="wifi_static" onchange="onStaticToggle()"><label style="margin:0;">Statische IP</label></div>
     <div id="staticIpFields">
       <label>IP-Adresse</label>
@@ -214,8 +219,11 @@ code{background:var(--bg);border:1px solid var(--border);border-radius:4px;paddi
     </select>
 
     <div id="staticSection">
-      <label>Statische Leistung (W)</label>
+      <label>Statische Leistung, Gesamt (W)</label>
       <input type="number" id="static_watt">
+      <div class="hint">Gilt für die Summe aller angeschlossenen Soyos (siehe
+      "Anzahl der Soyos am Bus" unten) -- die Firmware teilt den Wert selbst
+      passend auf, nicht pro Gerät einzeln eintragen.</div>
     </div>
 
     <label>Shelly IP</label>
@@ -237,8 +245,10 @@ code{background:var(--bg);border:1px solid var(--border);border-radius:4px;paddi
 
   <fieldset>
     <legend>Regelung</legend>
-    <label>Max. Leistung (W)</label>
+    <label>Max. Leistung, Gesamt (W)</label>
     <input type="number" id="max_power">
+    <div class="hint">Sicherheitslimit für die Summe aller angeschlossenen
+    Soyos, nicht pro Gerät.</div>
     <label>Anzahl der Soyos am Bus (1-12)</label>
     <input type="number" id="soyo_count" min="1" max="12">
     <label>Zähler-Kalibrierung (W)</label>
@@ -247,8 +257,10 @@ code{background:var(--bg);border:1px solid var(--border);border-radius:4px;paddi
     ihn sehen -- gleicht einen systematisch falsch kalibrierten Stromzähler aus
     (z.B. zeigt er immer 5W zu viel Bezug an). Kein Richtungs-Bias, nur
     Sensorkorrektur.</div>
-    <label>Fallback-Watt</label>
+    <label>Fallback-Watt, Gesamt</label>
     <input type="number" id="fallback_watt">
+    <div class="hint">Gilt für die Summe aller angeschlossenen Soyos, nicht
+    pro Gerät.</div>
     <label>Toleranz Bezug (W)</label>
     <input type="number" id="tolerance_import_w" min="5" max="50">
     <label>Toleranz Einspeisung (W)</label>
@@ -284,7 +296,7 @@ code{background:var(--bg);border:1px solid var(--border);border-radius:4px;paddi
       <input type="time" id="night_start">
       <label>Bis</label>
       <input type="time" id="night_end">
-      <label>Max. Leistung nachts (W)</label>
+      <label>Max. Leistung nachts, Gesamt (W)</label>
       <input type="number" id="night_max_power">
     </div>
     <button type="button" class="btn btn-blue" onclick="saveSection('nacht')">Nachtmodus speichern</button>
@@ -451,6 +463,8 @@ function loadConfigForm(){
   fetch('/config').then(r=>r.json()).then(c=>{
     document.getElementById('wifi_ssid').value=c.wifi_ssid||'';
     document.getElementById('wifi_pass').value=c.wifi_pass||'';
+    document.getElementById('wifi_ssid2').value=c.wifi_ssid2||'';
+    document.getElementById('wifi_pass2').value=c.wifi_pass2||'';
     document.getElementById('wifi_static').checked=!!c.wifi_static;
     document.getElementById('wifi_ip').value=c.wifi_ip||'';
     document.getElementById('wifi_gw').value=c.wifi_gw||'';
@@ -512,6 +526,8 @@ const SECTION_BUILDERS = {
   wlan: () => ({
     wifi_ssid: document.getElementById('wifi_ssid').value,
     wifi_pass: document.getElementById('wifi_pass').value,
+    wifi_ssid2: document.getElementById('wifi_ssid2').value,
+    wifi_pass2: document.getElementById('wifi_pass2').value,
     wifi_static: document.getElementById('wifi_static').checked,
     wifi_ip: document.getElementById('wifi_ip').value,
     wifi_gw: document.getElementById('wifi_gw').value,

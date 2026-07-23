@@ -26,6 +26,15 @@ struct Config {
     // WiFi
     char wifi_ssid[64];
     char wifi_pass[64];
+    // Fallback-WLAN (optional, leer lassen = kein Fallback): wird erst probiert,
+    // wenn das primäre WLAN oben eine Weile nicht erreichbar ist -- z.B. ein
+    // Handy-Hotspot oder ein zweiter Router als Notlösung, falls der Haupt-
+    // Router mal ausfällt. Das primäre WLAN bleibt dabei immer bevorzugt: läuft
+    // das Gerät gerade auf dem Fallback, wird im Hintergrund regelmäßig
+    // geprüft, ob das primäre Netz wieder erreichbar ist, und automatisch
+    // dorthin zurückgewechselt.
+    char wifi_ssid2[64];
+    char wifi_pass2[64];
     bool wifi_static;      // true = feste IP unten verwenden statt DHCP
     char wifi_ip[16];
     char wifi_gw[16];
@@ -43,7 +52,8 @@ struct Config {
 
     // Betriebsmodus
     uint8_t mode;
-    uint16_t static_watt; // Sollwert im Static-Modus (mode=0)
+    uint16_t static_watt; // GESAMT-Sollwert im Static-Modus (mode=0), siehe
+                          // max_power weiter unten -- gleiches Prinzip
 
     // Shelly / JSON HTTP Client
     char shelly_ip[32];
@@ -55,7 +65,11 @@ struct Config {
     char json_path[64]; // Punkt-separiert, z.B. "StatusSNS.SML.DJ_TPWRCURR"
 
     // Regelung
-    uint16_t max_power;      // Obergrenze für den Sollwert in Watt (Sicherheitslimit)
+    uint16_t max_power;      // Obergrenze für die GESAMTE Ausgangsleistung aller
+                             // angeschlossenen Soyos zusammen, in Watt
+                             // (Sicherheitslimit) -- main.cpp teilt durch
+                             // soyo_count, bevor der Wert als Sollwert PRO
+                             // Soyo gesendet wird.
     uint8_t  soyo_count;     // Anzahl parallel angeschlossener Soyo-Geräte (1-12);
                              // der Messwert wird durch diese Zahl geteilt, bevor er
                              // auf den Sollwert aufaddiert wird (siehe main.cpp)
@@ -67,7 +81,9 @@ struct Config {
                              // (die verändern nur die Totzonen-Breite, nicht den
                              // tatsächlichen Referenzpunkt) -- unabhängige,
                              // orthogonale Einstellung.
-    uint16_t fallback_watt;  // Sollwert, wenn die Messwertquelle wiederholt ausfällt
+    uint16_t fallback_watt;  // GESAMT-Sollwert, wenn die Messwertquelle wiederholt
+                             // ausfällt (siehe max_power oben -- gleiches Prinzip,
+                             // main.cpp teilt durch soyo_count)
     uint16_t rs485_send_interval_ms; // Wie oft ein neuer Sollwert an den Soyo gesendet
                              // wird, 1000-3000ms, Standard 1100ms. Ein Referenzcontroller
                              // (BavarianSuperGuy/KlausLi) mit identischer Hardware läuft
@@ -89,7 +105,8 @@ struct Config {
     bool     night_mode_enabled;
     uint8_t  night_start_h, night_start_m; // Beginn, z.B. 22:00
     uint8_t  night_end_h,   night_end_m;   // Ende, z.B. 06:00 (darf über Mitternacht gehen)
-    uint16_t night_max_power;
+    uint16_t night_max_power; // GESAMT-Obergrenze wie max_power oben, nur
+                              // während des Nachtfensters
 
     // OTA
     char ota_pass[32];

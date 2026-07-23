@@ -105,18 +105,22 @@ static void runControlLoop() {
 
     int32_t target;
 
-    // static_watt/fallback_watt/max_power/night_max_power sind alle als
-    // GESAMTLEISTUNG des ganzen Systems gedacht (z.B. "Fallback auf 200W"
-    // meint 200W insgesamt, nicht pro Inverter) -- rs485SetTargetDemand()
-    // schickt denselben Sollwert aber unveraendert an JEDEN der soyo_count
-    // parallelen Inverter (jeder fuehrt ihn unabhaengig aus), die tatsaechliche
-    // Gesamtleistung ist also target * soyo_count. Deshalb hier durch
-    // soyo_count teilen, bevor der Wert als Sollwert PRO Inverter gesendet
-    // wird -- ohne das waere bei mehreren parallelen Invertern jeder
-    // dieser Werte um den Faktor soyo_count zu stark (bei max_power/
-    // night_max_power besonders kritisch, da beides als Sicherheitslimit
-    // gedacht ist). Nur die eigentliche Regelkorrektur (netz / soyo_count
-    // weiter unten) hat das schon immer richtig gemacht.
+    // static_watt/fallback_watt sind als GESAMTLEISTUNG des ganzen Systems
+    // gedacht (z.B. "Fallback auf 200W" meint 200W insgesamt, nicht pro
+    // Inverter) -- rs485SetTargetDemand() schickt denselben Sollwert aber
+    // unveraendert an JEDEN der soyo_count parallelen Inverter (jeder fuehrt
+    // ihn unabhaengig aus), die tatsaechliche Gesamtleistung ist also
+    // target * soyo_count. Deshalb hier durch soyo_count teilen, bevor der
+    // Wert als Sollwert PRO Inverter gesendet wird.
+    //
+    // max_power/night_max_power sind dagegen bewusst als PRO-INVERTER-Wert
+    // gedacht (z.B. "2000" = Typenschild-Maximalwert eines einzelnen
+    // Wechselrichters) und werden deshalb weiter unten OHNE Division direkt
+    // als Pro-Geraet-Obergrenze verwendet -- ein Nutzer mit ungleich starken
+    // Invertern (z.B. 3x 2000W + 1x 200W am selben Bus, der schwaechere
+    // deckelt sich ohnehin selbst) kann so einfach den echten Maximalwert
+    // seiner staerksten Geraete eintragen, statt selbst Summe/soyo_count
+    // ausrechnen zu muessen.
     if (config.mode == MODE_STATIC) {
         target = config.static_watt / config.soyo_count;
         g_lastMeasurementMillis = millis(); // kein externer Messwert im Static-Modus nötig
@@ -140,7 +144,7 @@ static void runControlLoop() {
         } else {
             target = g_demand; // Toleranzband: Sollwert unverändert
         }
-        target = constrain(target, 0, (int32_t)config.max_power / config.soyo_count);
+        target = constrain(target, 0, (int32_t)config.max_power);
         lastComputedTarget = target;
     } else {
         // Kein neuer Messwert seit dem letzten Durchlauf -> zuletzt berechneten
@@ -149,7 +153,7 @@ static void runControlLoop() {
     }
 
     if (isNightMode()) {
-        target = constrain(target, 0, (int32_t)config.night_max_power / config.soyo_count);
+        target = constrain(target, 0, (int32_t)config.night_max_power);
     }
 
     rs485SetTargetDemand(target);

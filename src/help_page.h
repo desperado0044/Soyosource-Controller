@@ -21,6 +21,12 @@ static const char HELP_HTML[] PROGMEM = R"rawliteral(
   Anschließend erreichbar über <code>http://soyo.local</code> oder die vom
   Router vergebene IP. Zuletzt im "Gerätekonfig"-Tab unter "Betriebsmodus" den
   gewünschten Modus einstellen und speichern.</p>
+  <p>Optional zusätzlich eine Fallback-SSID/Passwort im
+  "Netzwerkkonfiguration"-Tab eintragen — wird erst probiert, wenn das
+  primäre WLAN eine Weile nicht erreichbar ist (z.B. Handy-Hotspot als
+  Notlösung). Primäres WLAN bleibt bevorzugt; ein automatisches Zurückwechseln
+  passiert passiv beim nächsten Verbindungsverlust, nicht aktiv während einer
+  stabilen Fallback-Verbindung.</p>
 </div>
 
 <div class="card">
@@ -47,22 +53,29 @@ static const char HELP_HTML[] PROGMEM = R"rawliteral(
 
 <div class="card">
   <h2>Betriebsmodi</h2>
-  <div class="row"><span>Static</span><span>konstante Leistung aus "Statische Leistung (W)", kein externer Messwert nötig</span></div>
+  <div class="row"><span>Static</span><span>konstante Gesamtleistung aus "Statische Leistung, Gesamt (W)" (wird durch "Anzahl der Soyos" geteilt), kein externer Messwert nötig</span></div>
   <div class="row"><span>HttpInterface</span><span>externes System pusht Messwert per <code>GET /L1L2L3Auto?Value=x</code></span></div>
   <div class="row"><span>MqttSub</span><span>Messwert kommt per MQTT-Nachricht rein, reagiert sofort ohne Abfrageintervall</span></div>
   <div class="row"><span>Shelly Gen1/Gen2</span><span>Gerät fragt den Shelly-Stromzähler selbst per HTTP ab (Intervall einstellbar), Phasen L1/L2/L3 frei kombinierbar</span></div>
   <div class="row"><span>JSON HTTP Client</span><span>fragt eine beliebige selbst konfigurierbare JSON-URL ab, Wert über einen Punkt-getrennten Pfad ausgelesen</span></div>
-  <p class="hint">Bei Shelly/JSON: nach 3 Fehlversuchen in Folge schaltet die
-  Firmware auf den konfigurierten Fallback-Watt-Wert um, bis wieder 3 Anfragen
-  in Folge erfolgreich waren.</p>
+  <p class="hint">Bei Shelly/JSON: nach 3 Fehlversuchen in Folge (dazu zählt
+  auch ein fehlendes WLAN, nicht nur eine ausbleibende Antwort des
+  Messwert-Servers) schaltet die Firmware auf den konfigurierten
+  Fallback-Watt-Wert um, bis wieder 3 Anfragen in Folge erfolgreich waren.</p>
 </div>
 
 <div class="card">
   <h2>Konfiguration: Regelung</h2>
-  <div class="row"><span>Max. Leistung (W)</span><span>harte Obergrenze für den Sollwert, wird nie überschritten</span></div>
-  <div class="row"><span>Anzahl der Soyos am Bus (1-12)</span><span>Sollwert wird durch diese Zahl geteilt, wenn mehrere Soyo-Geräte parallel am selben RS485-Bus hängen</span></div>
+  <div class="row"><span>Max. Leistung pro Inverter (W)</span><span>harte Obergrenze PRO Soyo (z.B. dessen Typenschild-Maximalwert), wird nie überschritten. Bei ungleich starken Invertern am selben Bus den Wert der stärksten Geräte eintragen, ein schwächeres Gerät begrenzt sich selbst</span></div>
+  <p class="hint"><b>Wichtig:</b> die Selbstbegrenzung eines schwächeren
+  Inverters funktioniert nur, wenn dessen eigener Maximalwert auch tatsächlich
+  korrekt in seiner eigenen Firmware/Konfiguration hinterlegt ist (Soyo-eigenes
+  Konfigurationstool, unabhängig von diesem ESP8266-Controller hier) --
+  vor dem Mischen unterschiedlich starker Geräte am selben Bus unbedingt bei
+  jedem einzelnen Inverter prüfen.</p>
+  <div class="row"><span>Anzahl der Soyos am Bus (1-12)</span><span>bei Static/Fallback-Watt sowie der laufenden Regelkorrektur wird der GESAMT-Sollwert durch diese Zahl geteilt, damit jeder Soyo seinen Anteil bekommt -- Max. Leistung/Max. Leistung nachts sind davon unabhängig, die gelten pro Inverter</span></div>
   <div class="row"><span>Zähler-Kalibrierung (W)</span><span>wird zu jedem Rohmesswert addiert, bevor Toleranz/Regelung ihn sehen -- gleicht einen systematisch falsch kalibrierten Stromzähler aus, kein Richtungs-Bias</span></div>
-  <div class="row"><span>Fallback-Watt</span><span>Sollwert, wenn die Messwertquelle wiederholt nicht antwortet</span></div>
+  <div class="row"><span>Fallback-Watt, Gesamt</span><span>Sollwert für die Summe aller Soyos, wenn die Messwertquelle wiederholt nicht antwortet (dazu zählt auch fehlendes WLAN)</span></div>
   <div class="row"><span>Toleranz Bezug / Toleranz Einspeisung (W)</span><span>je 5-50W, Standard je 10W -- unabhängige Grenzen pro Richtung, solange der Messwert sie nicht erreicht wird nicht nachgeregelt. Für striktere Nulleinspeisung "Toleranz Einspeisung" enger als "Toleranz Bezug" setzen, sonst beide gleich</span></div>
   <div class="row"><span>Poll-Intervall (ms)</span><span>wie oft Shelly/JSON abgefragt werden (400-2000ms)</span></div>
   <div class="row"><span>RS485-Sendeintervall (ms)</span><span>wie oft ein neuer Sollwert an den Soyo gesendet wird (1000-3000ms, Standard 1100ms); zu häufige oder zu seltene Updates können den Soyo unvorhersehbar reagieren lassen, siehe README</span></div>
@@ -71,11 +84,12 @@ static const char HELP_HTML[] PROGMEM = R"rawliteral(
 
 <div class="card">
   <h2>Konfiguration: Nachtmodus</h2>
-  <p>Optional aktivierbar, begrenzt die maximale Leistung in einem
-  Zeitfenster (z.B. 22:00-06:00) zusätzlich zur normalen Max.-Leistung-Grenze
-  — z.B. um nachts leiser/schonender zu fahren. Das Zeitfenster darf über
-  Mitternacht gehen. Wirkt ebenfalls sofort, ohne Neustart; die Uhrzeit kommt
-  per NTP aus dem Internet (nur verfügbar, sobald das Gerät im WLAN ist).</p>
+  <p>Optional aktivierbar, begrenzt die maximale Leistung PRO Inverter in
+  einem Zeitfenster (z.B. 22:00-06:00) zusätzlich zur normalen
+  Max.-Leistung-Grenze — z.B. um nachts leiser/schonender zu fahren. Das
+  Zeitfenster darf über Mitternacht gehen. Wirkt ebenfalls sofort, ohne
+  Neustart; die Uhrzeit kommt per NTP aus dem Internet (nur verfügbar,
+  sobald das Gerät im WLAN ist).</p>
 </div>
 
 <div class="card">
@@ -108,7 +122,7 @@ static const char HELP_HTML[] PROGMEM = R"rawliteral(
 <div class="card">
   <h2>Display (optional)</h2>
   <p>Ein angeschlossenes SSD1306-OLED zeigt Live-Betrieb ohne Handy/Laptop:
-  im Setup-Modus SSID/IP des Config-Portals, danach kurz Firmware-Version
+  im Setup-Modus SSID/IP des Config-Portals, danach kurz Build-Zeitstempel
   und die zugewiesene IP, dauerhaft danach Netz-/Soyo-Leistung, WLAN-Status
   und aktiver Modus. Rein informativ, keine eigenen Einstellungen im
   Webinterface — Details siehe README.</p>

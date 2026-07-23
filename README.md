@@ -194,10 +194,18 @@ formatiert, Gerät startet neu und geht wieder in den AP-Setup-Modus.
 ## Betriebsmodi
 
 - **Static**: Ausgang konstant auf `static_watt` (kein externer Messwert nötig).
-  `static_watt` (ebenso `fallback_watt`, `max_power`, `night_max_power`) meint
-  dabei immer die Summe über alle angeschlossenen Soyos (`soyo_count`) — die
-  Firmware teilt den Wert selbst passend durch `soyo_count`, bevor er als
-  Sollwert pro Gerät gesendet wird.
+  `static_watt` und `fallback_watt` meinen die Summe über alle angeschlossenen
+  Soyos (`soyo_count`) — die Firmware teilt den Wert selbst passend durch
+  `soyo_count`, bevor er als Sollwert pro Gerät gesendet wird. `max_power` und
+  `night_max_power` sind dagegen bewusst **pro Inverter** gemeint (z.B. dessen
+  Typenschild-Maximalwert) und werden direkt als Pro-Gerät-Obergrenze
+  verwendet — bei ungleich starken Invertern am selben Bus einfach den Wert
+  der stärksten Geräte eintragen, ein schwächeres Gerät begrenzt sich selbst.
+  **Wichtig:** diese Selbstbegrenzung funktioniert nur, wenn der jeweilige
+  Maximalwert auch tatsächlich korrekt in der eigenen Firmware/Konfiguration
+  des Inverters hinterlegt ist (Soyo-eigenes Konfigurationstool, unabhängig
+  von diesem ESP8266-Controller) — vor dem Mischen unterschiedlich starker
+  Geräte am selben Bus bei jedem einzelnen Inverter prüfen.
 - **HttpInterface**: externe Quelle pusht Messwert per `GET /L1L2L3Auto?Value=<watt>`.
 - **MqttSub**: Messwert kommt per MQTT-Subscribe auf `mqtt_sub_topic`.
 - **Shelly Gen1 / Gen2 Pro**: Firmware pollt den Shelly per HTTP, Intervall

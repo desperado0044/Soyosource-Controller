@@ -65,11 +65,12 @@ struct Config {
     char json_path[64]; // Punkt-separiert, z.B. "StatusSNS.SML.DJ_TPWRCURR"
 
     // Regelung
-    uint16_t max_power;      // Obergrenze für die GESAMTE Ausgangsleistung aller
-                             // angeschlossenen Soyos zusammen, in Watt
-                             // (Sicherheitslimit) -- main.cpp teilt durch
-                             // soyo_count, bevor der Wert als Sollwert PRO
-                             // Soyo gesendet wird.
+    uint16_t max_power;      // Obergrenze PRO Inverter, in Watt (Sicherheitslimit,
+                             // z.B. Typenschild-Maximalwert eines einzelnen
+                             // Soyos) -- main.cpp verwendet den Wert direkt,
+                             // ohne Division durch soyo_count. Bei ungleich
+                             // starken Invertern am selben Bus einfach den
+                             // Wert der stärksten Geräte eintragen.
     uint8_t  soyo_count;     // Anzahl parallel angeschlossener Soyo-Geräte (1-12);
                              // der Messwert wird durch diese Zahl geteilt, bevor er
                              // auf den Sollwert aufaddiert wird (siehe main.cpp)
@@ -105,8 +106,8 @@ struct Config {
     bool     night_mode_enabled;
     uint8_t  night_start_h, night_start_m; // Beginn, z.B. 22:00
     uint8_t  night_end_h,   night_end_m;   // Ende, z.B. 06:00 (darf über Mitternacht gehen)
-    uint16_t night_max_power; // GESAMT-Obergrenze wie max_power oben, nur
-                              // während des Nachtfensters
+    uint16_t night_max_power; // PRO-Inverter-Obergrenze wie max_power oben,
+                              // nur während des Nachtfensters
 
     // OTA
     char ota_pass[32];

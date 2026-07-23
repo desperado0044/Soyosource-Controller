@@ -245,10 +245,12 @@ code{background:var(--bg);border:1px solid var(--border);border-radius:4px;paddi
 
   <fieldset>
     <legend>Regelung</legend>
-    <label>Max. Leistung, Gesamt (W)</label>
+    <label>Max. Leistung pro Inverter (W)</label>
     <input type="number" id="max_power">
-    <div class="hint">Sicherheitslimit für die Summe aller angeschlossenen
-    Soyos, nicht pro Gerät.</div>
+    <div class="hint">Sicherheitslimit pro einzelnem Soyo (z.B. dessen
+    Typenschild-Maximalwert), nicht die Summe. Bei ungleich starken
+    Invertern am selben Bus den Wert der stärksten Geräte eintragen -- ein
+    schwächeres Gerät begrenzt sich selbst.</div>
     <label>Anzahl der Soyos am Bus (1-12)</label>
     <input type="number" id="soyo_count" min="1" max="12">
     <label>Zähler-Kalibrierung (W)</label>
@@ -296,7 +298,7 @@ code{background:var(--bg);border:1px solid var(--border);border-radius:4px;paddi
       <input type="time" id="night_start">
       <label>Bis</label>
       <input type="time" id="night_end">
-      <label>Max. Leistung nachts, Gesamt (W)</label>
+      <label>Max. Leistung nachts pro Inverter (W)</label>
       <input type="number" id="night_max_power">
     </div>
     <button type="button" class="btn btn-blue" onclick="saveSection('nacht')">Nachtmodus speichern</button>

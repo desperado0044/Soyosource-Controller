@@ -208,6 +208,16 @@ Bei den pollenden Modi (Shelly/JSON) schaltet die Firmware nach 3 Fehlversuchen 
 einen Fallback-Zustand (`fallback_watt`) und kehrt nach 3 erfolgreichen Antworten
 wieder in den Normalbetrieb zurück.
 
+**Bedeutung des Messwerts ("Netzwert"):** die aktuell vom Stromzähler gemessene
+Abweichung vom Nullpunkt (Netto-Null-Einspeisung), nicht der absolute
+Hausverbrauch. **Positiv** = das Haus bezieht gerade zusätzlich Strom aus dem
+Netz, Soyo muss die Einspeisung erhöhen. **Negativ** = überschüssiger Strom
+fließt ins Netz zurück, Soyo muss verringern. Diese Abweichung fließt direkt in
+die Sollwert-Nachführung ein (`target = aktueller Sollwert + Netzwert /
+soyo_count`) — im eingeschwungenen Zustand pendelt der Wert nahe 0 (innerhalb
+des Toleranzbands). Am Display wird nur der Betrag angezeigt, die Richtung
+steckt in einem separaten Pfeilsymbol (siehe "Display" oben).
+
 ## RS485 Status-Response
 
 Das Sende-Frame (Sollwert setzen) und die Status-Anfrage sind exakt nach Vorgabe

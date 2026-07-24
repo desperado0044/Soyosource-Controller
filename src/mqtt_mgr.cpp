@@ -148,6 +148,20 @@ void mqttBegin() {
     if (!config.mqtt_enabled) return;
     mqttClient.setServer(config.mqtt_broker, config.mqtt_port);
     mqttClient.setCallback(mqttCallback);
+
+    // PubSubClient blockiert bei jedem connect()/publish()/loop() bis zu
+    // MQTT_SOCKET_TIMEOUT lang (Standard: 15 Sekunden!), falls der Broker
+    // nicht (mehr) antwortet -- z.B. bei einem kurzen Router-/Broker-Hänger.
+    // In diesen 15 Sekunden läuft die komplette restliche Firmware nicht
+    // weiter, insbesondere sendet rs485Loop() in dieser Zeit keinen neuen
+    // Sollwert an den Soyo -- und der schaltet laut eigenem Protokoll bei
+    // ausbleibenden RS485-Frames selbstständig auf 0W (siehe Kommentar bei
+    // applyDemand() in rs485.cpp). Das reicht als Erklärung für beobachtete,
+    // mehrere Sekunden lange Einspeise-Aussetzer bei aktivem MQTT. 2 Sekunden
+    // reichen für einen normalen Broker völlig aus und begrenzen den
+    // Blockier-Fall auf einen Bruchteil der bisherigen Zeit.
+    mqttClient.setSocketTimeout(2);
+    wifiClient.setTimeout(2000);
 }
 
 void mqttLoop() {

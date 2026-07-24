@@ -23,7 +23,7 @@
 // irgendwer manuell neu startet.
 bool                 g_otaActive = false;
 static unsigned long otaStartMillis = 0;
-static const unsigned long OTA_TIMEOUT_MS = 120000; // 2 Minuten
+static const unsigned long OTA_TIMEOUT_MS = 60000; // 1 Minute
 
 // Wird von ElegantOTA automatisch aufgerufen, sobald ein Firmware-Upload
 // beginnt. Während des Uploads braucht der ESP8266 seinen Speicher und seine
@@ -33,11 +33,23 @@ static const unsigned long OTA_TIMEOUT_MS = 120000; // 2 Minuten
 // abschalten (sonst würde er den langsamen Upload fälschlich als "hängen
 // geblieben" werten und den ESP mitten im Update neu starten).
 static void onOTAStart() {
+    // ElegantOTA ruft das bei JEDEM GET /ota/start auf, auch ohne dass danach
+    // ein echter Upload folgt (z.B. ein im Browser offen gelassener/neu
+    // geladener /update-Tab). War schon ein Versuch aktiv, darf ein weiterer
+    // Aufruf den Timer unten NICHT neu starten -- sonst würde jeder erneute
+    // Aufruf innerhalb der Timeout-Frist den Schutz immer wieder aufschieben,
+    // und Notaus/RS485-Pause könnten im schlimmsten Fall unbegrenzt lange
+    // aktiv bleiben, ohne dass je ein echter Upload passiert (real auf einem
+    // Gerät beobachtet: mehrere Stunden Notaus, ohne dass es je manuell
+    // gesetzt wurde). otaStartMillis wird deshalb nur beim allerersten Aufruf
+    // gesetzt, der Timeout bleibt so eine echte Obergrenze.
+    if (!g_otaActive) {
+        otaStartMillis = millis();
+    }
     g_notaus = true;
     rs485Pause(true); // setzt DE/RE bereits auf LOW (Empfang)
     ESP.wdtDisable();
     g_otaActive = true;
-    otaStartMillis = millis();
     LOG("OTA: Update gestartet");
 }
 

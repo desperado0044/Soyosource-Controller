@@ -275,6 +275,13 @@ code{background:var(--bg);border:1px solid var(--border);border-radius:4px;paddi
     "Toleranz Bezug" weiter; wer beide Richtungen gleich behandeln will
     (z.B. bei angemeldeter, unkritischer minimaler Einspeisung), setzt beide
     gleich.</div>
+    <label>Regelkorrektur-Dämpfung (%)</label>
+    <input type="number" id="correction_gain_percent" min="10" max="100">
+    <div class="hint">10-100%, Standard 50%. Wie stark eine einzelne Korrektur
+    pro Regeldurchlauf ausfällt (100% = alte, ungedämpfte Vollkorrektur). Ein
+    kleinerer Wert reagiert langsamer, verhindert aber ein Aufschaukeln
+    (Sägezahn-Schwingen), falls die tatsächliche Wirkung einer Korrektur dem
+    Messwert am Zähler etwas hinterherhinkt.</div>
     <label>Poll-Intervall Shelly/JSON (ms)</label>
     <input type="number" id="poll_interval_ms" min="400" max="2000" step="50">
     <div class="hint">400-2000ms. Kleinere Werte reagieren schneller, blockieren
@@ -498,6 +505,7 @@ function loadConfigForm(){
     document.getElementById('fallback_watt').value=c.fallback_watt;
     document.getElementById('tolerance_import_w').value=c.tolerance_import_w;
     document.getElementById('tolerance_export_w').value=c.tolerance_export_w;
+    document.getElementById('correction_gain_percent').value=c.correction_gain_percent;
     document.getElementById('poll_interval_ms').value=c.poll_interval_ms;
     document.getElementById('rs485_send_interval_ms').value=c.rs485_send_interval_ms;
 
@@ -562,6 +570,7 @@ const SECTION_BUILDERS = {
     fallback_watt: parseInt(document.getElementById('fallback_watt').value)||0,
     tolerance_import_w: parseInt(document.getElementById('tolerance_import_w').value)||10,
     tolerance_export_w: parseInt(document.getElementById('tolerance_export_w').value)||10,
+    correction_gain_percent: parseInt(document.getElementById('correction_gain_percent').value)||50,
     poll_interval_ms: parseInt(document.getElementById('poll_interval_ms').value)||500,
     rs485_send_interval_ms: parseInt(document.getElementById('rs485_send_interval_ms').value)||1100
   }),

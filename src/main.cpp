@@ -140,7 +140,11 @@ static void runControlLoop() {
         // tolerance_import_w.
         float netz = g_netzwert;
         if (netz >= (float)config.tolerance_import_w || netz <= -(float)config.tolerance_export_w) {
-            target = g_demand + (int32_t)(netz / config.soyo_count);
+            // Gedämpft statt voll: siehe correction_gain_percent in config.h --
+            // verhindert ein Aufschaukeln, wenn die tatsächliche Wirkung einer
+            // Korrektur dem Messwert um ein paar Regeldurchläufe hinterherhinkt.
+            float korrektur = (netz / config.soyo_count) * (config.correction_gain_percent / 100.0f);
+            target = g_demand + (int32_t)korrektur;
         } else {
             target = g_demand; // Toleranzband: Sollwert unverändert
         }

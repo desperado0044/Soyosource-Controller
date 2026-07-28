@@ -100,6 +100,23 @@ struct Config {
     uint16_t tolerance_export_w; // Toleranz Richtung Einspeisung (5-50W, Standard
                              // 10W), spiegelbildlich zu tolerance_import_w -- siehe
                              // main.cpp für die genaue Verwendung beider Werte.
+    uint8_t  correction_gain_percent; // Dämpfung der Regelkorrektur (10-100%,
+                             // Standard 50%): main.cpp wendet pro Regeldurchlauf
+                             // nur diesen Prozentsatz von "netz / soyo_count" an,
+                             // statt die volle Korrektur auf einmal. Grund: zwischen
+                             // "neuer Sollwert gesendet" und "Shelly sieht die
+                             // tatsächliche Wirkung am Zähler" liegt eine reale
+                             // Verzögerung (Rampzeit des Soyo, Mittelungsfenster des
+                             // Shelly) -- reagiert die Regelschleife bei jedem
+                             // Messwert sofort mit voller Stärke, kann das zu einem
+                             // Aufschaukeln (Sägezahn/Limit-Cycle) führen, weil schon
+                             // die nächste Messung noch die alte, ausstehende
+                             // Korrektur "sieht" und erneut voll nachlegt. Eine
+                             // Dämpfung < 100% lässt jeden einzelnen Schritt kleiner
+                             // ausfallen, wodurch sich Verzögerungseffekte über
+                             // mehrere Regeldurchläufe hinweg ausmitteln statt
+                             // aufzuschaukeln -- kostet etwas Reaktionsgeschwindigkeit,
+                             // gewinnt dafür Stabilität.
 
     // Nachtmodus: begrenzt die maximale Leistung in einem Zeitfenster, z.B. um
     // nachts leiser/schonender zu fahren

@@ -38,6 +38,7 @@ void configSetDefaults(Config &c) {
     c.rs485_send_interval_ms = 1100;
     c.tolerance_import_w = 10;
     c.tolerance_export_w = 10;
+    c.correction_gain_percent = 50;
 
     c.night_mode_enabled = false;
     c.night_start_h = 22;
@@ -91,6 +92,7 @@ static void configToDoc(const Config &c, JsonDocument &doc) {
     doc["rs485_send_interval_ms"] = c.rs485_send_interval_ms;
     doc["tolerance_import_w"] = c.tolerance_import_w;
     doc["tolerance_export_w"] = c.tolerance_export_w;
+    doc["correction_gain_percent"] = c.correction_gain_percent;
 
     doc["night_mode_enabled"] = c.night_mode_enabled;
     doc["night_start_h"] = c.night_start_h;
@@ -165,6 +167,7 @@ static void docToConfig(JsonDocument &doc, Config &c) {
     if (!doc["rs485_send_interval_ms"].isNull()) c.rs485_send_interval_ms = doc["rs485_send_interval_ms"];
     if (!doc["tolerance_import_w"].isNull()) c.tolerance_import_w = doc["tolerance_import_w"];
     if (!doc["tolerance_export_w"].isNull()) c.tolerance_export_w = doc["tolerance_export_w"];
+    if (!doc["correction_gain_percent"].isNull()) c.correction_gain_percent = doc["correction_gain_percent"];
 
     if (!doc["night_mode_enabled"].isNull()) c.night_mode_enabled = doc["night_mode_enabled"];
     if (!doc["night_start_h"].isNull()) c.night_start_h = doc["night_start_h"];
@@ -207,6 +210,12 @@ static void docToConfig(JsonDocument &doc, Config &c) {
     if (c.tolerance_import_w > 50) c.tolerance_import_w = 50;
     if (c.tolerance_export_w < 5) c.tolerance_export_w = 5;
     if (c.tolerance_export_w > 50) c.tolerance_export_w = 50;
+
+    // 10-100%: unter 10% würde die Regelung auf reale Lastwechsel kaum noch
+    // reagieren (viel zu träge), 100% entspricht der alten, ungedämpften
+    // Vollkorrektur pro Regeldurchlauf.
+    if (c.correction_gain_percent < 10) c.correction_gain_percent = 10;
+    if (c.correction_gain_percent > 100) c.correction_gain_percent = 100;
 }
 
 // Muss als Erstes aufgerufen werden, bevor irgendetwas anderes auf LittleFS
